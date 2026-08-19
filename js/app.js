@@ -7,7 +7,7 @@
 import {
   leer, leerTodos, guardar, eliminar, limpiar, sembrarDatosSiVacio,
   crearEmpresa, listarEmpresas, eliminarEmpresa, migrarDesdeAntigua,
-  setAlCambiarDatos, aplicarRegistro,
+  setAlCambiarDatos, aplicarRegistro, cerrarTodasConexiones,
 } from "./db.js";
 import {
   sembrarAdminInicial, crearUsuario, cambiarContrasena, eliminarUsuario,
@@ -602,20 +602,28 @@ async function restablecerDispositivo() {
     const sb = obtenerCliente();
     if (sb && sb.auth) await sb.auth.signOut();
   } catch (e) { /* noop */ }
+  try { cerrarTodasConexiones(); } catch (e) { /* noop */ }
   try {
     const bds = await indexedDB.databases();
     for (const { name } of bds || []) {
       if (name && (name.startsWith("konta") || name === "minegocio_db")) {
-        indexedDB.deleteDatabase(name);
+        await new Promise((resolver) => {
+          const peticion = indexedDB.deleteDatabase(name);
+          peticion.onsuccess = () => resolver();
+          peticion.onblocked = () => resolver();
+          peticion.onerror = () => resolver();
+        });
       }
     }
   } catch (e) { /* noop */ }
   try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* noop */ }
   try {
-    if (self.caches) {
-      const claves = await caches.keys();
-      await Promise.all(claves.map((c) => caches.delete(c)));
-    }
+    const registros = await navigator.serviceWorker.getRegistrations();
+    await Promise.all((registros || []).map((r) => r.unregister()));
+  } catch (e) { /* noop */ }
+  try {
+    const claves = await caches.keys();
+    await Promise.all(claves.map((c) => caches.delete(c)));
   } catch (e) { /* noop */ }
   location.reload();
 }

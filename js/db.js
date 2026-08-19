@@ -82,6 +82,12 @@ function cerrarConexion(nombre) {
   }
 }
 
+// Cierra todas las conexiones IndexedDB en caché (necesario antes de borrar
+// bases con indexedDB.deleteDatabase, que se bloquea si hay conexiones abiertas).
+function cerrarTodasConexiones() {
+  for (const nombre of Array.from(conexiones.keys())) cerrarConexion(nombre);
+}
+
 // ---------------------------------------------------------------------------
 // Utilidades para abrir cada base de datos
 // ---------------------------------------------------------------------------
@@ -572,5 +578,5 @@ export {
   listarEmpresas, eliminarEmpresa, migrarDesdeAntigua,
   aplicarRegistro, aplicarEliminacion, leerTodosDeEmpresa,
   setAlCambiarDatos, leerTumbas, guardarTumbas, limpiarTumba,
-  empresaActivaId,
+  empresaActivaId, cerrarTodasConexiones,
 };
