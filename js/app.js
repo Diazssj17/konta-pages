@@ -594,6 +594,32 @@ async function manejarCrearUsuario(e) {
   renderAdmin();
 }
 
+// Borra TODOS los datos locales del dispositivo (bases, caché, sesión) y
+// recarga la app desde cero. La nube NO se toca.
+async function restablecerDispositivo() {
+  if (!confirm("¿Borrar TODOS los datos de este teléfono y volver a empezar? Esta acción no se puede deshacer.")) return;
+  try {
+    const sb = obtenerCliente();
+    if (sb && sb.auth) await sb.auth.signOut();
+  } catch (e) { /* noop */ }
+  try {
+    const bds = await indexedDB.databases();
+    for (const { name } of bds || []) {
+      if (name && (name.startsWith("konta") || name === "minegocio_db")) {
+        indexedDB.deleteDatabase(name);
+      }
+    }
+  } catch (e) { /* noop */ }
+  try { localStorage.clear(); sessionStorage.clear(); } catch (e) { /* noop */ }
+  try {
+    if (self.caches) {
+      const claves = await caches.keys();
+      await Promise.all(claves.map((c) => caches.delete(c)));
+    }
+  } catch (e) { /* noop */ }
+  location.reload();
+}
+
 // ---------------------------------------------------------------------------
 // Navegación entre vistas
 // ---------------------------------------------------------------------------
@@ -2396,6 +2422,7 @@ function configurarEventos() {
   // Administración (solo admin global)
   $("#form-crear-empresa").addEventListener("submit", manejarCrearEmpresa);
   $("#form-crear-usuario").addEventListener("submit", manejarCrearUsuario);
+  $("#btn-restablecer-datos").addEventListener("click", restablecerDispositivo);
   // Mostrar / ocultar contraseña (botón ojo dentro de los campos).
   document.addEventListener("click", (e) => {
     const ojo = e.target.closest(".btn-ojo");
