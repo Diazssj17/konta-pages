@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#7c2d12" />
+  <title>Konta - Inventario y ventas</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- ============ PANTALLA DE ACCESO ============ -->
+  <div id="pantalla-auth" class="pantalla-auth">
+    <div class="auth-caja">
+      <div class="auth-marca">
+        <span class="marca-emoji">📊</span>
+        <h1>Konta</h1>
+        <p>Tu inventario y ventas</p>
+      </div>
+
+      <!-- LOGIN (elige la empresa y entra) -->
+      <form id="form-login" class="auth-form">
+        <div class="campo-input">
+          <span class="campo-icono">🏢</span>
+          <select id="login-empresa">
+            <option value="">Selecciona tu empresa…</option>
+          </select>
+        </div>
+        <div class="campo-input">
+          <span class="campo-icono">✉️</span>
+          <input type="email" id="login-correo" placeholder="Correo electrónico" autocomplete="username" required />
+        </div>
+        <div class="campo-input">
+          <span class="campo-icono">🔒</span>
+          <input type="password" id="login-contrasena" placeholder="Contraseña" autocomplete="current-password" required />
+          <button type="button" class="btn-ojo" data-objetivo="login-contrasena" tabindex="-1" aria-label="Mostrar contraseña">👁️</button>
+        </div>
+        <p class="auth-nota nota-login-admin" id="login-ayuda-admin"></p>
+        <button type="submit" class="btn btn-primario btn-ancho">Iniciar sesión</button>
+        <p class="auth-error" id="login-error"></p>
+        <div class="auth-enlaces">
+          <button type="button" class="btn-enlace" id="btn-ir-recuperar">¿Olvidaste tu contraseña?</button>
+        </div>
+      </form>
+
+      <!-- CAMBIO DE CONTRASEÑA OBLIGATORIO (primer ingreso) -->
+      <form id="form-cambiar" class="auth-form oculto">
+        <h2 class="auth-titulo">🔑 Cambia tu contraseña</h2>
+        <p class="nota auth-nota" id="cambiar-nota"></p>
+        <div class="campo-input">
+          <span class="campo-icono">🔒</span>
+          <input type="password" id="cambiar-contrasena" placeholder="Nueva contraseña (mín. 4)" autocomplete="new-password" required />
+          <button type="button" class="btn-ojo" data-objetivo="cambiar-contrasena" tabindex="-1" aria-label="Mostrar contraseña">👁️</button>
+        </div>
+        <div class="campo-input">
+          <span class="campo-icono">🔒</span>
+          <input type="password" id="cambiar-confirma" placeholder="Repite la contraseña" autocomplete="new-password" required />
+        </div>
+        <button type="submit" class="btn btn-primario btn-ancho">Guardar contraseña</button>
+        <p class="auth-error" id="cambiar-error"></p>
+      </form>
+
+      <!-- RECUPERAR -->
+      <form id="form-recuperar" class="auth-form oculto">
+        <h2 class="auth-titulo">🔐 Recuperar contraseña</h2>
+        <p class="nota auth-nota">Como la app funciona sin internet, responde tu pregunta de seguridad para crear una contraseña nueva.</p>
+        <div class="campo-input">
+          <span class="campo-icono">✉️</span>
+          <input type="email" id="rec-correo" placeholder="Correo electrónico" autocomplete="username" required />
+        </div>
+        <button type="submit" class="btn btn-primario btn-ancho">Buscar cuenta</button>
+        <p class="auth-error" id="rec-error"></p>
+        <div class="auth-enlaces">
+          <button type="button" class="btn-enlace" id="btn-ir-login-2">← Volver al inicio de sesión</button>
+        </div>
+      </form>
+
+      <!-- NUEVA CONTRASEÑA -->
+      <form id="form-nueva" class="auth-form oculto">
+        <h2 class="auth-titulo">🔑 Nueva contraseña</h2>
+        <p class="nota auth-nota" id="nueva-pregunta"></p>
+        <div class="campo-input">
+          <span class="campo-icono">🔑</span>
+          <input type="text" id="nueva-respuesta" placeholder="Tu respuesta de seguridad" autocomplete="off" required />
+        </div>
+        <div class="campo-input">
+          <span class="campo-icono">🔒</span>
+          <input type="password" id="nueva-contrasena" placeholder="Nueva contraseña (mín. 4)" autocomplete="new-password" required />
+          <button type="button" class="btn-ojo" data-objetivo="nueva-contrasena" tabindex="-1" aria-label="Mostrar contraseña">👁️</button>
+        </div>
+        <button type="submit" class="btn btn-primario btn-ancho">Restablecer contraseña</button>
+        <p class="auth-error" id="nueva-error"></p>
+        <div class="auth-enlaces">
+          <button type="button" class="btn-enlace" id="btn-nueva-cancelar">← Cancelar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="app">
+
+    <header class="barra-superior">
+      <div class="marca">
+        <span class="marca-emoji">📊</span>
+        <div>
+          <h1>Konta</h1>
+          <p id="fecha-hoy" class="fecha-hoy"></p>
+        </div>
+      </div>
+      <button id="btn-alertas" class="campana" title="Alertas de stock">
+        <span class="campana-icono">🔔</span>
+        <span id="contador-alertas" class="contador-alertas oculto">0</span>
+      </button>
+      <span id="sync-estado" class="sync-estado" title="Estado de la sincronización">📴</span>
+      <button id="btn-ayuda" class="btn-ayuda oculto" title="Ayuda y uso de datos">❓</button>
+      <button id="btn-volver-admin" class="btn-salir oculto" title="Salir de la revisión y volver al panel de administración">🛠️ Panel</button>
+      <button id="btn-cerrar-sesion-top" class="btn-salir" title="Cerrar sesión">🚪 Salir</button>
+    </header>
+
+    <!-- Banner de alertas de stock bajo -->
+    <div id="banner-alertas" class="banner-alertas oculto"></div>
+
+    <main class="contenido">
+
+      <!-- ============ VISTA: DASHBOARD ============ -->
+      <section id="vista-dashboard" class="vista activa">
+        <div class="tarjetas-kpi">
+          <div class="kpi">
+            <span class="kpi-etiqueta">Ingresos del mes</span>
+            <span id="kpi-ingresos" class="kpi-valor">$ 0</span>
+          </div>
+          <div class="kpi kpi-resaltado">
+            <span class="kpi-etiqueta">Producto más vendido</span>
+            <span id="kpi-producto" class="kpi-valor">—</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-etiqueta">Ventas registradas</span>
+            <span id="kpi-ventas" class="kpi-valor">0</span>
+          </div>
+          <div class="kpi">
+            <span class="kpi-etiqueta">Utilidad estimada</span>
+            <span id="kpi-utilidad" class="kpi-valor">$ 0</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Últimas ventas</h2>
+          <div id="lista-ultimas-ventas" class="lista-vacia">Cargando…</div>
+        </div>
+
+        <div class="panel">
+          <h2>Stock crítico</h2>
+          <div id="lista-stock-critico" class="lista-vacia">Cargando…</div>
+        </div>
+
+        <div class="panel">
+          <h2>Top 3 más vendidos</h2>
+          <div id="lista-top-3" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: VENTAS ============ -->
+      <section id="vista-ventas" class="vista">
+        <div class="panel">
+          <h2>Registrar venta</h2>
+          <form id="form-venta" class="formulario">
+            <label>Producto
+              <select id="venta-producto" required></select>
+            </label>
+            <div class="fila-form">
+              <label>Cantidad
+                <input type="number" id="venta-cantidad" min="1" value="1" required />
+              </label>
+              <label>Fecha
+                <input type="date" id="venta-fecha" required />
+              </label>
+            </div>
+            <button type="submit" class="btn btn-primario">Registrar venta</button>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Historial de ventas</h2>
+          <div id="filtros-ventas" class="filtros">
+            <button data-dias="7" class="filtro-btn activo">7 días</button>
+            <button data-dias="15" class="filtro-btn">15 días</button>
+            <button data-dias="30" class="filtro-btn">30 días</button>
+            <button data-dias="0" class="filtro-btn">Todo</button>
+          </div>
+          <div id="lista-ventas" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: PRODUCTOS ============ -->
+      <section id="vista-productos" class="vista">
+        <div class="panel">
+          <div class="encabezado-panel">
+            <h2>Mis productos</h2>
+            <div class="acciones-encabezado">
+              <button id="btn-categorias" class="btn btn-secundario btn-pequeno">🗂️ Categorías</button>
+              <button id="btn-nuevo-producto" class="btn btn-primario btn-pequeno">+ Nuevo</button>
+            </div>
+          </div>
+          <input type="search" id="buscador-productos" class="buscador" placeholder="Buscar producto…" />
+          <div id="lista-productos" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: ANÁLISIS ============ -->
+      <section id="vista-analisis" class="vista">
+        <div class="panel">
+          <h2>Ventas por período</h2>
+          <div id="periodo-tabs" class="filtros">
+            <button data-periodo="7" class="filtro-btn activo">7 días</button>
+            <button data-periodo="30" class="filtro-btn">30 días</button>
+            <button data-periodo="meses" class="filtro-btn">Por mes</button>
+          </div>
+          <div id="grafico-periodo" class="grafico"></div>
+          <div id="totales-periodo" class="resumen-periodo"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Ingresos por categoría</h2>
+          <div id="grafico-categorias" class="grafico"></div>
+          <div id="leyenda-categorias" class="leyenda"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Ranking de productos</h2>
+          <div id="ranking-productos" class="lista-vacia">Cargando…</div>
+        </div>
+
+        <div class="panel">
+          <h2>Análisis financiero</h2>
+          <div id="analisis-financiero"></div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: PRODUCIR ============ -->
+      <section id="vista-producir" class="vista">
+        <div class="panel">
+          <h2>🏭 ¿Qué necesito para hacer?</h2>
+          <form id="form-producir" class="formulario">
+            <label>Producto a producir
+              <select id="producir-producto" required></select>
+            </label>
+          </form>
+          <div id="necesidades-produccion" class="lista-vacia">Elige un producto y una cantidad para ver los insumos que necesitas.</div>
+          <button id="btn-registrar-produccion" class="btn btn-primario oculto">Registrar producción</button>
+        </div>
+
+        <div class="panel">
+          <h2>🛒 Lista de compras (insumos bajos)</h2>
+          <div id="lista-compras" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: CONFIGURACIÓN ============ -->
+      <section id="vista-config" class="vista">
+        <div class="panel">
+          <h2>Cuenta</h2>
+          <p class="nota">Sesión activa: <strong id="config-correo-sesion"></strong></p>
+          <div class="panel-empresa">
+            <p class="nota">Empresa: <strong id="config-empresa-nombre"></strong></p>
+          </div>
+          <div class="acciones-config">
+            <button id="btn-cerrar-sesion" class="btn btn-secundario">Cerrar sesión</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Excel</h2>
+          <p class="nota">Importa o exporta tus datos en formato Excel (.xlsx). El importar reemplaza los datos actuales.</p>
+          <div class="acciones-config">
+            <button id="btn-exportar-excel" class="btn btn-secundario">Exportar a Excel (.xlsx)</button>
+            <button id="btn-importar-excel" class="btn btn-secundario">Importar desde Excel</button>
+            <input type="file" id="input-importar-excel" accept=".xlsx,.xls,.csv" class="oculto" />
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Datos de la app</h2>
+          <p class="nota">Konta guarda tus datos en este dispositivo (IndexedDB). No necesita internet.</p>
+          <div class="acciones-config">
+            <button id="btn-exportar" class="btn btn-secundario">Exportar datos (JSON)</button>
+            <button id="btn-importar" class="btn btn-secundario">Importar datos</button>
+            <input type="file" id="input-importar" accept="application/json" class="oculto" />
+            <button id="btn-borrar-todo" class="btn btn-peligro">Borrar todos los datos</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Notificaciones</h2>
+          <label class="interruptor">
+            <input type="checkbox" id="chk-notificaciones" />
+            <span class="interruptor-carril"></span>
+            <span class="interruptor-texto">Recibir alertas de stock bajo</span>
+          </label>
+          <button id="btn-permitir-notif" class="btn btn-secundario oculto">Activar notificaciones del sistema</button>
+          <p id="estado-notif" class="nota"></p>
+        </div>
+        <div class="panel">
+          <h2>Acerca de</h2>
+          <p class="nota">Konta v1.0 · Aplicación instalable (PWA) para controlar tus productos, ventas y finanzas.</p>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: ADMINISTRACIÓN (solo admin global) ============ -->
+      <section id="vista-admin" class="vista">
+        <div class="panel">
+          <h2>🏢 Empresas</h2>
+          <p class="nota">Crea las empresas del negocio. Cada empresa tiene su propia base de datos. Pulsa <strong>Revisar</strong> para entrar a ver sus datos.</p>
+          <div id="admin-empresas" class="lista-vacia">Cargando…</div>
+          <form id="form-crear-empresa" class="formulario admin-crear">
+            <div class="campo-input">
+              <span class="campo-icono">🏢</span>
+              <input type="text" id="admin-nueva-empresa" placeholder="Nombre de la nueva empresa" autocomplete="off" required />
+            </div>
+            <button type="submit" class="btn btn-primario">Crear empresa</button>
+          </form>
+          <p class="auth-error" id="admin-empresa-error"></p>
+        </div>
+
+        <div class="panel">
+          <h2>👤 Usuarios</h2>
+          <p class="nota">Crea los usuarios de cada empresa. La primera vez que entren deberán cambiar su contraseña.</p>
+          <form id="form-crear-usuario" class="formulario admin-crear">
+            <div class="campo-input">
+              <span class="campo-icono">🏢</span>
+              <select id="admin-usuario-empresa" required>
+                <option value="">Empresa…</option>
+              </select>
+            </div>
+            <div class="campo-input">
+              <span class="campo-icono">👤</span>
+              <input type="text" id="admin-usuario-nombre" placeholder="Nombre del usuario" autocomplete="off" required />
+            </div>
+            <div class="campo-input">
+              <span class="campo-icono">✉️</span>
+              <input type="email" id="admin-usuario-correo" placeholder="Correo electrónico" autocomplete="off" required />
+            </div>
+            <div class="campo-input">
+              <span class="campo-icono">🔒</span>
+              <input type="password" id="admin-usuario-clave" placeholder="Contraseña inicial (mín. 4)" autocomplete="off" required />
+            </div>
+            <div class="campo-input">
+              <span class="campo-icono">❓</span>
+              <select id="admin-usuario-pregunta" required>
+                <option value="">Pregunta de seguridad…</option>
+                <option>¿Cuál es el nombre de tu primera mascota?</option>
+                <option>¿Cuál es tu comida favorita?</option>
+                <option>¿En qué ciudad naciste?</option>
+                <option>¿Cuál es tu color favorito?</option>
+                <option>¿Cómo se llama tu mejor amigo?</option>
+              </select>
+            </div>
+            <div class="campo-input">
+              <span class="campo-icono">🔑</span>
+              <input type="text" id="admin-usuario-respuesta" placeholder="Respuesta de seguridad" autocomplete="off" required />
+            </div>
+            <button type="submit" class="btn btn-primario">Crear usuario</button>
+          </form>
+          <p class="auth-error" id="admin-usuario-error"></p>
+          <div id="admin-lista-usuarios" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Navegación inferior -->
+    <nav class="navegacion">
+      <button class="nav-btn activo" data-vista="dashboard">
+        <span class="nav-icono">🏠</span><span>Inicio</span>
+      </button>
+      <button class="nav-btn" data-vista="ventas">
+        <span class="nav-icono">💰</span><span>Ventas</span>
+      </button>
+      <button class="nav-btn" data-vista="productos">
+        <span class="nav-icono">📦</span><span>Productos</span>
+      </button>
+      <button class="nav-btn" data-vista="producir">
+        <span class="nav-icono">🏭</span><span>Producir</span>
+      </button>
+      <button class="nav-btn" data-vista="analisis">
+        <span class="nav-icono">📈</span><span>Análisis</span>
+      </button>
+      <button class="nav-btn" data-vista="config">
+        <span class="nav-icono">⚙️</span><span>Config</span>
+      </button>
+      <button class="nav-btn oculto" data-vista="admin" id="nav-admin">
+        <span class="nav-icono">🛠️</span><span>Admin</span>
+      </button>
+    </nav>
+  </div>
+
+  <!-- ============ MODAL: PRODUCTO ============ -->
+  <div id="modal-producto" class="modal oculto">
+    <div class="modal-contenido">
+      <h2 id="modal-producto-titulo">Nuevo producto</h2>
+      <form id="form-producto" class="formulario">
+        <input type="hidden" id="producto-id" />
+        <label>Nombre
+          <input type="text" id="producto-nombre" required />
+        </label>
+        <label>Categoría
+          <select id="producto-categoria">
+            <option value="Tortas">Tortas</option>
+            <option value="Repostería">Repostería</option>
+            <option value="Bebidas">Bebidas</option>
+            <option value="Otros">Otros</option>
+          </select>
+        </label>
+        <div class="fila-form">
+          <label id="campo-precio-venta">Precio de venta
+            <input type="number" id="producto-precio" min="0" step="100" required />
+          </label>
+          <label id="campo-costo"><span id="costo-label-texto">Costo</span>
+            <input type="number" id="producto-costo" min="0" step="100" required />
+          </label>
+        </div>
+        <span id="producto-costo-nota" class="nota oculto"></span>
+        <div class="fila-form">
+          <label>Stock
+            <input type="number" id="producto-stock" min="0" required />
+          </label>
+          <label>Stock mínimo
+            <input type="number" id="producto-stock-minimo" min="0" required />
+          </label>
+        </div>
+        <label>Unidad de medida
+          <select id="producto-unidad">
+            <option value="unidad">Unidad (pieza)</option>
+            <option value="g">Gramos (g)</option>
+            <option value="ml">Mililitros (ml)</option>
+          </select>
+        </label>
+        <label>Emoji
+          <select id="producto-emoji"></select>
+        </label>
+        <label class="interruptor">
+          <input type="checkbox" id="producto-es-insumo" />
+          <span class="interruptor-carril"></span>
+          <span class="interruptor-texto">Es insumo / ingrediente (no se vende)</span>
+        </label>
+        <div class="modal-acciones">
+          <button type="button" id="btn-cancelar-producto" class="btn btn-secundario">Cancelar</button>
+          <button type="submit" class="btn btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CATEGORÍAS ============ -->
+  <div id="modal-categorias" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>🗂️ Categorías</h2>
+      <form id="form-categoria" class="formulario">
+        <input type="hidden" id="categoria-id" />
+        <div class="fila-categoria">
+          <input type="text" id="categoria-nombre" placeholder="Nombre de la categoría (ej. Postres)" required />
+          <button type="submit" class="btn btn-primario btn-pequeno" id="btn-guardar-categoria">Guardar</button>
+        </div>
+      </form>
+      <div id="lista-categorias" class="lista-vacia">Cargando…</div>
+      <div class="modal-acciones">
+        <button id="btn-cerrar-categorias" class="btn btn-secundario">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: RECETA ============ -->
+  <div id="modal-receta" class="modal oculto">
+    <div class="modal-contenido">
+      <h2 id="receta-titulo">📋 Receta</h2>
+      <p id="receta-subtitulo" class="nota"></p>
+      <div id="lista-receta" class="lista-vacia">Cargando…</div>
+
+      <form id="form-receta" class="formulario">
+        <input type="hidden" id="receta-insumo-id-edicion" />
+        <label>Agregar insumo
+          <div class="fila-receta">
+            <select id="receta-insumo" required></select>
+            <input type="number" id="receta-cantidad" min="0.1" step="0.1" placeholder="Cant." required />
+          </div>
+        </label>
+        <div class="modal-acciones">
+          <button type="button" id="btn-cancelar-receta" class="btn btn-secundario">Cerrar</button>
+          <button type="submit" class="btn btn-primario" id="btn-guardar-receta">Agregar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ALERTAS ============ -->
+  <div id="modal-alertas" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>🔔 Alertas de stock</h2>
+      <div id="contenido-alertas" class="lista-vacia">Cargando…</div>
+      <div class="modal-acciones">
+        <button id="btn-cerrar-alertas" class="btn btn-primario">Entendido</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: AYUDA Y USO DE DATOS ============ -->
+  <div id="modal-ayuda" class="modal oculto">
+    <div class="modal-contenido">
+      <h2>❓ Ayuda y uso de datos</h2>
+
+      <h3 class="ayuda-titulo">¿Cómo usar Konta?</h3>
+      <ul class="guia-lista">
+        <li><strong>📦 Productos:</strong> agrega tus productos con precio, costo y stock. Marca <em>"Es insumo"</em> si es un ingrediente para recetas.</li>
+        <li><strong>💰 Ventas:</strong> registra cada venta eligiendo el producto y la cantidad.</li>
+        <li><strong>🏭 Producir:</strong> elige un producto con receta para ver los insumos necesarios y registrar la producción.</li>
+        <li><strong>📈 Análisis:</strong> revisa tus ingresos, categorías, ranking de productos y utilidad.</li>
+        <li><strong>⚙️ Config:</strong> exporta o importa Excel, activa alertas de stock bajo y administra tu cuenta.</li>
+      </ul>
+
+      <h3 class="ayuda-titulo">🔒 Autorización de uso de datos</h3>
+      <p class="nota">
+        Konta guarda tus datos únicamente en <strong>este dispositivo</strong> (IndexedDB). La aplicación
+        funciona sin internet y <strong>no envía tus datos a ningún servidor</strong>. Autorizo el uso de
+        mis datos dentro de esta aplicación para el control de mi inventario y mis ventas.
+      </p>
+      <label class="interruptor ayuda-autorizacion">
+        <input type="checkbox" id="chk-autorizacion-datos" />
+        <span class="interruptor-carril"></span>
+        <span class="interruptor-texto">Autorizo el uso de mis datos en esta aplicación</span>
+      </label>
+      <p id="autorizacion-estado" class="nota"></p>
+
+      <div class="modal-acciones">
+        <button type="button" id="btn-cerrar-ayuda" class="btn btn-secundario">Cerrar</button>
+        <button type="button" id="btn-guardar-autorizacion" class="btn btn-primario">Guardar autorización</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div id="toast" class="toast oculto"></div>
+
+<script src="js/xlsx.full.min.js"></script>
+<script src="js/supabase.min.js"></script>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
