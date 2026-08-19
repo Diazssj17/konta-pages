@@ -108,8 +108,15 @@ export async function bootstrapDesdeNube(correo, contrasena) {
   const sb = obtenerCliente();
   if (!sb || !navigator.onLine) return { ok: false, error: "Sin conexión a internet." };
   try {
-    const { error } = await sb.auth.signInWithPassword({ email: correo, password: contrasena });
-    if (error) return { ok: false, error: "No existe una cuenta en la nube con esas credenciales." };
+    let { error } = await sb.auth.signInWithPassword({ email: correo, password: contrasena });
+    // La cuenta de Supabase Auth se crea con el PRIMER ingreso. Si el
+    // administrador creó al usuario en "usuarios" pero nunca entró, en un
+    // teléfono nuevo aún no existe su cuenta: la creamos con las mismas
+    // credenciales que acaba de teclear (la contraseña la fijó el admin).
+    if (error) {
+      const { error: errorUp } = await sb.auth.signUp({ email: correo, password: contrasena });
+      if (errorUp) return { ok: false, error: "No existe una cuenta en la nube con esas credenciales." };
+    }
   } catch {
     return { ok: false, error: "Error de red al conectar con la nube." };
   }

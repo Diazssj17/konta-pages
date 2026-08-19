@@ -3,7 +3,7 @@
  * Permite que la app funcione sin conexión y se pueda instalar en el celular.
  */
 
-const CACHE_NOMBRE = "konta-v11";
+const CACHE_NOMBRE = "konta-v12";
 const ARCHIVOS_PARA_CACHE = [
   "./",
   "./index.html",
