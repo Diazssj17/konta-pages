@@ -260,7 +260,10 @@ async function fusionarTabla(sb, tabla, empresasIds, opciones = {}) {
       const nubeRow = nubeMap.get(clave);
       const localT = r.updated_at || FECHA_EPOCA;
       if (!nubeRow || localT > nubeRow.updated_at) {
-        aEmpujar.push(filaParaPush(tabla, { ...r, empresa_id: empresaId }, nubeRow));
+        // En tablas globales (usuarios, empresas) NO se debe pisar empresa_id:
+        // el registro local ya lo lleva y filaParaPush lo usa para subirlo.
+        const registroPush = config.global ? r : { ...r, empresa_id: r.__empresa_id };
+        aEmpujar.push(filaParaPush(tabla, registroPush, nubeRow));
       }
     }
     if (aEmpujar.length) {
