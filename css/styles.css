@@ -315,6 +315,12 @@ body {
   margin-top: 5px;
 }
 
+.fila-categoria .btn,
+.agregar-item .btn {
+  width: auto;
+  flex-shrink: 0;
+}
+
 .fila-receta select {
   flex: 1;
 }
