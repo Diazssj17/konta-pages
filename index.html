@@ -532,7 +532,10 @@
   <div id="vista-factura" class="vista-factura oculto">
     <div class="factura-pagina" id="factura-pagina">
       <div class="factura-pagina-cabecera">
-        <div class="factura-pagina-nombre" id="factura-pagina-nombre">Mi Negocio</div>
+        <div class="factura-pagina-nombre-fila">
+          <input type="text" class="factura-pagina-nombre" id="factura-pagina-nombre" value="Mi Negocio" maxlength="60" autocomplete="off" title="Toca el nombre para cambiarlo" />
+          <span class="factura-nombre-lapiz" aria-hidden="true">✏️</span>
+        </div>
         <div class="factura-pagina-meta" id="factura-pagina-meta">Factura</div>
         <div class="factura-pagina-cliente" id="factura-pagina-cliente">Cliente: Consumidor final</div>
         <div class="factura-badge" id="factura-pagina-metodo">💵 Efectivo</div>

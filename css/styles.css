@@ -43,6 +43,7 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow-x: hidden;
 }
 
 .oculto {
@@ -1260,16 +1261,50 @@ body {
   overflow: hidden;
 }
 
+body.bloqueo-scroll {
+  overflow: hidden;
+}
+
 .factura-pagina {
   flex: 1;
   overflow-y: auto;
   background: #ffffff;
-  margin: 12px;
+  margin: 10px;
   border-radius: 14px;
   border: 1px solid var(--borde);
-  padding: 20px 16px;
+  padding: 18px 14px;
   font-size: 14px;
   color: var(--texto);
+}
+
+@media (max-width: 360px) {
+  .factura-pagina {
+    margin: 6px;
+    padding: 14px 10px;
+    border-radius: 12px;
+  }
+
+  .factura-pagina-nombre {
+    font-size: 18px;
+  }
+
+  .factura-pagina-total {
+    font-size: 16px;
+  }
+
+  .factura-item-nombre {
+    font-size: 13px;
+  }
+
+  .factura-pagina-acciones {
+    gap: 8px;
+    padding: 0 8px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .factura-pagina-acciones .btn {
+    padding: 10px 10px;
+    font-size: 13px;
+  }
 }
 
 .factura-pagina-cabecera {
@@ -1279,10 +1314,36 @@ body {
   margin-bottom: 12px;
 }
 
+.factura-pagina-nombre-fila {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .factura-pagina-nombre {
   font-size: 20px;
   font-weight: 800;
   color: var(--primario);
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  padding: 2px 6px;
+  text-align: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.factura-pagina-nombre:focus {
+  border-color: var(--acento);
+  outline: none;
+  background: var(--fondo);
+}
+
+.factura-nombre-lapiz {
+  font-size: 13px;
+  opacity: 0.6;
+  flex-shrink: 0;
 }
 
 .factura-pagina-meta {

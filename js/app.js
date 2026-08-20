@@ -1135,7 +1135,7 @@ function verFactura(facturaId) {
 function mostrarFactura(data) {
   const esTransferencia = data.metodo === "transferencia";
   const etiquetaMetodo = esTransferencia ? "🏦 Transferencia" : "💵 Efectivo";
-  $("#factura-pagina-nombre").textContent = empresaActual ? empresaActual.nombre : "Konta";
+  $("#factura-pagina-nombre").value = empresaActual ? empresaActual.nombre : "Konta";
   $("#factura-pagina-meta").textContent = "Factura " + (data.numero || "") + " · " + formatearFecha(data.fecha);
   $("#factura-pagina-cliente").textContent = data.cliente ? "Cliente: " + data.cliente : "Cliente: Consumidor final";
   const badge = $("#factura-pagina-metodo");
@@ -1151,7 +1151,27 @@ function mostrarFactura(data) {
     '</div>'
   ).join("");
   $("#factura-pagina-total").textContent = formatearCOP(data.total);
+  document.body.classList.add("bloqueo-scroll");
   $("#vista-factura").classList.remove("oculto");
+}
+
+async function guardarNombreEmpresaDesdeFactura() {
+  const input = $("#factura-pagina-nombre");
+  const nombre = (input.value || "").trim();
+  if (!empresaActual) {
+    input.value = "Konta";
+    return;
+  }
+  if (!nombre) {
+    input.value = empresaActual.nombre;
+    return;
+  }
+  if (nombre === empresaActual.nombre) return;
+  empresaActual.nombre = nombre;
+  await guardar(empresaActual, "empresas");
+  const cfg = $("#config-empresa-nombre");
+  if (cfg) cfg.textContent = nombre;
+  toast("Nombre del negocio actualizado.");
 }
 
 function escapeHTML(texto) {
@@ -1161,13 +1181,23 @@ function escapeHTML(texto) {
 }
 
 function cerrarFactura() {
+  document.body.classList.remove("bloqueo-scroll");
   $("#vista-factura").classList.add("oculto");
   cambiarVista("ventas");
 }
 
 function imprimirFactura() {
   const pagina = $("#vista-factura .factura-pagina").innerHTML;
-  $("#factura-imprimir").innerHTML = '<div class="factura-pagina">' + pagina + '</div>';
+  const contenedor = $("#factura-imprimir");
+  contenedor.innerHTML = '<div class="factura-pagina">' + pagina + '</div>';
+  const nombreInput = contenedor.querySelector(".factura-pagina-nombre");
+  if (nombreInput) {
+    const div = document.createElement("div");
+    div.className = "factura-pagina-nombre";
+    div.textContent = nombreInput.value || "Konta";
+    nombreInput.replaceWith(div);
+  }
+  contenedor.querySelector(".factura-nombre-lapiz")?.remove();
   window.print();
 }
 
@@ -2615,6 +2645,13 @@ function configurarEventos() {
   $("#btn-registrar-factura").addEventListener("click", registrarFactura);
   $("#btn-volver-factura").addEventListener("click", cerrarFactura);
   $("#btn-imprimir-factura").addEventListener("click", imprimirFactura);
+  $("#factura-pagina-nombre").addEventListener("change", guardarNombreEmpresaDesdeFactura);
+  $("#factura-pagina-nombre").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
   $("#factura-item-cantidad").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
