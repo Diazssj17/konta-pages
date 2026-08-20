@@ -1109,3 +1109,232 @@ body {
     align-items: center;
   }
 }
+
+/* ============ Facturación ============ */
+.metodo-pago {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.metodo-opcion {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--fondo);
+  border: 1.5px solid var(--borde);
+  border-radius: 12px;
+  padding: 12px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.metodo-opcion input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.metodo-opcion .metodo-emoji {
+  font-size: 18px;
+}
+
+.metodo-opcion:has(input:checked) {
+  border-color: var(--acento);
+  background: var(--acento-suave, #fef3c7);
+}
+
+.agregar-item {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  margin-bottom: 10px;
+}
+
+.agregar-item select {
+  flex: 1;
+  min-width: 0;
+}
+
+.agregar-item input {
+  width: 74px;
+}
+
+.agregar-item .btn {
+  white-space: nowrap;
+}
+
+.factura-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--fondo);
+}
+
+.factura-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.factura-item-nombre {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--texto);
+}
+
+.factura-item-detalle {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.factura-item-subtotal {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto);
+  white-space: nowrap;
+}
+
+.factura-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--superficie);
+  border: 1.5px solid var(--borde);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 12px 0;
+}
+
+.factura-total-etiqueta {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+.factura-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-top: 4px;
+}
+
+.factura-badge.efectivo {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.factura-badge.transferencia {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.modal-factura-ancho {
+  max-width: 420px;
+}
+
+.ticket-factura {
+  background: #ffffff;
+  border: 1px dashed var(--borde);
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 13px;
+  color: var(--texto);
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.ticket-cabecera {
+  text-align: center;
+  border-bottom: 1px dashed var(--borde);
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.ticket-nombre {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--primario);
+}
+
+.ticket-meta {
+  font-size: 12px;
+  color: var(--texto-suave);
+  margin-top: 2px;
+}
+
+.ticket-fila {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.ticket-fila .ticket-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.ticket-fila .ticket-precio {
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.ticket-total {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px dashed var(--borde);
+  margin-top: 10px;
+  padding-top: 10px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ticket-pie {
+  text-align: center;
+  font-size: 11px;
+  color: var(--texto-suave);
+  margin-top: 12px;
+}
+
+/* Contenedor de impresión: oculto en pantalla, visible solo al imprimir */
+.imprimir-solo {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  #factura-imprimir,
+  #factura-imprimir * {
+    visibility: visible;
+  }
+
+  #factura-imprimir {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+
+  #factura-imprimir .ticket-factura {
+    border: none;
+    border-radius: 0;
+    max-height: none;
+    overflow: visible;
+  }
+}

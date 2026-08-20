@@ -38,6 +38,7 @@ let periodoAnalisis = 7;    // "7" | "30" | "meses"
 let terminoBusqueda = "";
 let productoRecetaActual = null; // producto cuya receta se está viendo/ editando
 let produccionSeleccionada = null; // cálculo actual de necesidades
+let itemsFactura = [];  // productos agregados a la factura en construcción
 
 // ---------------------------------------------------------------------------
 // Utilidades DOM
@@ -840,24 +841,210 @@ function renderDashboard() {
 // VENTAS
 // ---------------------------------------------------------------------------
 function renderVentas() {
-  // Selector de producto en el formulario (no se venden insumos).
-  const select = $("#venta-producto");
-  const anterior = select.value;
-  select.innerHTML = "";
-  productos.filter((p) => !p.es_insumo).forEach((p) => {
-    const op = document.createElement("option");
-    op.value = p.id;
-    op.textContent = p.nombre + " — " + formatearCOP(p.precio) + " (stock: " + p.stock + ")";
-    select.appendChild(op);
-  });
-  if (anterior) select.value = anterior;
-  $("#venta-fecha").value = hoyISO();
+  // Selector de producto (no se venden insumos).
+  const select = $("#factura-item-producto");
+  if (select) {
+    const anterior = select.value;
+    select.innerHTML = "";
+    productos.filter((p) => !p.es_insumo).forEach((p) => {
+      const op = document.createElement("option");
+      op.value = p.id;
+      op.textContent = p.nombre + " — " + formatearCOP(p.precio) + " (stock: " + p.stock + ")";
+      select.appendChild(op);
+    });
+    if (anterior) select.value = anterior;
+  }
+  const fecha = $("#factura-fecha");
+  if (fecha) fecha.value = hoyISO();
+  const numero = $("#factura-numero");
+  if (numero) numero.value = "F-" + String(siguienteNumeroFactura()).padStart(4, "0");
 
-  // Historial filtrado por días
-  let lista = ventas.slice().sort((a, b) => (b.fecha + b.id).localeCompare(a.fecha + a.id));
+  renderItemsFactura();
+  renderHistorialFacturas();
+}
+
+// Devuelve el siguiente número de factura (secuencial).
+function siguienteNumeroFactura() {
+  let max = 0;
+  for (const v of ventas) {
+    const n = Number(v.numero_factura) || 0;
+    if (n > max) max = n;
+  }
+  return max + 1;
+}
+
+// Renderiza la lista de productos agregados a la factura actual y el total.
+function renderItemsFactura() {
+  const caja = $("#factura-items");
+  if (!caja) return;
+  caja.innerHTML = "";
+  if (itemsFactura.length === 0) {
+    caja.textContent = "Sin productos agregados.";
+  } else {
+    itemsFactura.forEach((item, idx) => {
+      const fila = document.createElement("div");
+      fila.className = "factura-item";
+
+      const info = document.createElement("div");
+      info.className = "factura-item-info";
+      const nombre = document.createElement("div");
+      nombre.className = "factura-item-nombre";
+      nombre.textContent = item.nombre;
+      const detalle = document.createElement("div");
+      detalle.className = "factura-item-detalle";
+      detalle.textContent = item.cantidad + " × " + formatearCOP(item.precio_unitario);
+      info.appendChild(nombre);
+      info.appendChild(detalle);
+
+      const subtotal = document.createElement("span");
+      subtotal.className = "factura-item-subtotal";
+      subtotal.textContent = formatearCOP(item.total);
+
+      const btnQuitar = document.createElement("button");
+      btnQuitar.className = "btn-mini peligro";
+      btnQuitar.textContent = "✕";
+      btnQuitar.title = "Quitar";
+      btnQuitar.onclick = () => quitarItemFactura(idx);
+
+      fila.appendChild(info);
+      fila.appendChild(subtotal);
+      fila.appendChild(btnQuitar);
+      caja.appendChild(fila);
+    });
+  }
+  const total = $("#factura-total");
+  if (total) total.textContent = formatearCOP(totalFactura());
+}
+
+function totalFactura() {
+  return itemsFactura.reduce((acc, item) => acc + item.total, 0);
+}
+
+// Agrega un producto a la factura en construcción.
+function agregarItemFactura() {
+  const productoId = Number($("#factura-item-producto").value);
+  const cantidad = Number($("#factura-item-cantidad").value);
+  const producto = productos.find((p) => p.id === productoId);
+  if (!producto) return toast("Selecciona un producto.", "error");
+  if (!cantidad || cantidad < 1) return toast("La cantidad debe ser mayor a 0.", "error");
+
+  const yaAgregado = itemsFactura.reduce((acc, i) => acc + (i.producto_id === producto.id ? i.cantidad : 0), 0);
+  if (producto.stock < yaAgregado + cantidad) {
+    return toast("Stock insuficiente de " + producto.nombre + " (quedan " + (producto.stock - yaAgregado) + ").", "error");
+  }
+
+  itemsFactura.push({
+    producto_id: producto.id,
+    nombre: producto.nombre,
+    cantidad: cantidad,
+    precio_unitario: producto.precio,
+    total: Math.round(producto.precio * cantidad * 100) / 100,
+  });
+  $("#factura-item-cantidad").value = "1";
+  renderItemsFactura();
+}
+
+function quitarItemFactura(idx) {
+  itemsFactura.splice(idx, 1);
+  renderItemsFactura();
+}
+
+// Registra la factura: guarda una línea en "ventas" por cada producto,
+// descuenta el stock y muestra el ticket.
+async function registrarFactura() {
+  if (itemsFactura.length === 0) return toast("Agrega al menos un producto.", "error");
+  const fecha = $("#factura-fecha").value;
+  if (!fecha) return toast("La fecha es obligatoria.", "error");
+  const metodo = (document.querySelector('input[name="metodo"]:checked') || {}).value || "efectivo";
+  const cliente = $("#factura-cliente").value.trim();
+  const numero = siguienteNumeroFactura();
+
+  for (const item of itemsFactura) {
+    const producto = productos.find((p) => p.id === item.producto_id);
+    if (!producto) return toast("Producto no encontrado: " + item.nombre, "error");
+    if (producto.stock < item.cantidad) {
+      return toast("Stock insuficiente de " + producto.nombre + " (quedan " + producto.stock + ").", "error");
+    }
+  }
+
+  const venta = {
+    numero_factura: numero,
+    factura_id: "F" + numero,
+    fecha: fecha,
+    cliente: cliente,
+    metodo_pago: metodo,
+    items: itemsFactura.length,
+    creado: Date.now(),
+  };
+
+  for (const item of itemsFactura) {
+    const producto = productos.find((p) => p.id === item.producto_id);
+    const linea = {
+      ...venta,
+      producto_id: producto.id,
+      nombre_producto: producto.nombre,
+      cantidad: item.cantidad,
+      precio_unitario: item.precio_unitario,
+      total: item.total,
+    };
+    await guardar(linea, "ventas");
+    producto.stock -= item.cantidad;
+    await guardar(producto, "productos");
+  }
+
+  const ticketData = {
+    numero: numero,
+    fecha: fecha,
+    cliente: cliente,
+    metodo: metodo,
+    items: itemsFactura.map((i) => ({
+      nombre: i.nombre,
+      cantidad: i.cantidad,
+      precio: i.precio_unitario,
+      total: i.total,
+    })),
+    total: totalFactura(),
+  };
+
+  toast("Factura registrada: " + formatearCOP(ticketData.total));
+  itemsFactura = [];
+  if ($("#factura-cliente")) $("#factura-cliente").value = "";
+  await recargarTodo();
+  notificarStockBajo();
+  mostrarFactura(ticketData);
+}
+
+// Agrupa las líneas de venta por factura (una factura puede tener varios productos).
+function agruparFacturas() {
+  const mapa = {};
+  const orden = [];
+  for (const v of ventas) {
+    const clave = v.factura_id || "V" + v.id;
+    if (!mapa[clave]) {
+      mapa[clave] = {
+        factura_id: clave,
+        numero: v.numero_factura || null,
+        fecha: v.fecha,
+        cliente: v.cliente || "",
+        metodo: v.metodo_pago || "efectivo",
+        total: 0,
+        lineas: 0,
+      };
+      orden.push(clave);
+    }
+    mapa[clave].total += v.total;
+    mapa[clave].lineas += 1;
+  }
+  const lista = orden.map((c) => mapa[c]);
+  lista.sort((a, b) => (b.fecha + "|" + (b.numero || 0)).localeCompare(a.fecha + "|" + (a.numero || 0)));
+  return lista;
+}
+
+function renderHistorialFacturas() {
+  let lista = agruparFacturas();
   if (filtroVentas > 0) {
     const desde = haceDiasISO(filtroVentas - 1);
-    lista = lista.filter((v) => v.fecha >= desde);
+    lista = lista.filter((f) => f.fecha >= desde);
   }
 
   $$("#filtros-ventas .filtro-btn").forEach((b) =>
@@ -867,43 +1054,52 @@ function renderVentas() {
   const caja = $("#lista-ventas");
   caja.innerHTML = "";
   if (lista.length === 0) {
-    caja.textContent = "No hay ventas en este período.";
+    caja.textContent = "No hay facturas en este período.";
   } else {
-    lista.forEach((v) => caja.appendChild(crearFilaVenta(v)));
+    lista.forEach((f) => caja.appendChild(crearFilaFactura(f)));
   }
 }
 
-function crearFilaVenta(v) {
+function crearFilaFactura(f) {
   const fila = document.createElement("div");
   fila.className = "fila-lista";
 
   const emoji = document.createElement("span");
   emoji.className = "fila-emoji";
-  const producto = productos.find((p) => p.id === v.producto_id);
-  emoji.textContent = producto ? producto.emoji : "🧾";
+  emoji.textContent = f.metodo === "transferencia" ? "🏦" : "💵";
 
   const info = document.createElement("div");
   info.className = "fila-info";
   const nombre = document.createElement("div");
   nombre.className = "fila-nombre";
-  nombre.textContent = v.nombre_producto || "Producto";
+  nombre.textContent = f.numero ? "Factura " + f.numero : f.factura_id;
   const detalle = document.createElement("div");
   detalle.className = "fila-detalle";
-  detalle.textContent = v.cantidad + " unidad · " + formatearFecha(v.fecha);
+  detalle.textContent = (f.cliente || "Sin cliente") + " · " + formatearFecha(f.fecha) +
+    " · " + f.lineas + (f.lineas === 1 ? " producto" : " productos");
   info.appendChild(nombre);
   info.appendChild(detalle);
+  const badge = document.createElement("div");
+  badge.className = "factura-badge " + f.metodo;
+  badge.textContent = f.metodo === "transferencia" ? "🏦 Transferencia" : "💵 Efectivo";
+  detalle.appendChild(badge);
 
   const derecha = document.createElement("div");
   derecha.className = "fila-derecha";
   const precio = document.createElement("div");
   precio.className = "fila-precio";
-  precio.textContent = formatearCOP(v.total);
+  precio.textContent = formatearCOP(f.total);
   const acciones = document.createElement("div");
   acciones.className = "acciones-fila";
+  const btnVer = document.createElement("button");
+  btnVer.className = "btn-mini";
+  btnVer.textContent = "Ver";
+  btnVer.onclick = () => verFactura(f.factura_id);
   const btnEliminar = document.createElement("button");
   btnEliminar.className = "btn-mini peligro";
   btnEliminar.textContent = "Eliminar";
-  btnEliminar.onclick = () => eliminarVenta(v.id);
+  btnEliminar.onclick = () => eliminarFactura(f.factura_id);
+  acciones.appendChild(btnVer);
   acciones.appendChild(btnEliminar);
   derecha.appendChild(precio);
   derecha.appendChild(acciones);
@@ -914,51 +1110,82 @@ function crearFilaVenta(v) {
   return fila;
 }
 
-async function registrarVenta(e) {
-  e.preventDefault();
-  const productoId = Number($("#venta-producto").value);
-  const cantidad = Number($("#venta-cantidad").value);
-  const fecha = $("#venta-fecha").value;
-
-  const producto = productos.find((p) => p.id === productoId);
-  if (!producto) return toast("Selecciona un producto.", "error");
-  if (!cantidad || cantidad < 1) return toast("La cantidad debe ser mayor a 0.", "error");
-  if (producto.stock < cantidad) {
-    return toast("Stock insuficiente de " + producto.nombre + " (quedan " + producto.stock + ").", "error");
-  }
-
-  const venta = {
-    producto_id: producto.id,
-    nombre_producto: producto.nombre,
-    cantidad: cantidad,
-    precio_unitario: producto.precio,
-    total: Math.round(producto.precio * cantidad * 100) / 100,
-    fecha: fecha || hoyISO(),
-  };
-
-  await guardar(venta, "ventas");
-  producto.stock -= cantidad;
-  await guardar(producto, "productos");
-
-  toast("Venta registrada: " + venta.nombre_producto + " x " + cantidad + " = " + formatearCOP(venta.total));
-  await recargarTodo();
-  notificarStockBajo();
+// Muestra el ticket de una factura ya guardada (por su factura_id).
+function verFactura(facturaId) {
+  const lineas = ventas.filter((v) => v.factura_id === facturaId);
+  const primera = lineas[0];
+  if (!primera) return;
+  const total = lineas.reduce((acc, v) => acc + v.total, 0);
+  mostrarFactura({
+    numero: primera.numero_factura,
+    fecha: primera.fecha,
+    cliente: primera.cliente || "",
+    metodo: primera.metodo_pago || "efectivo",
+    items: lineas.map((v) => ({
+      nombre: v.nombre_producto,
+      cantidad: v.cantidad,
+      precio: v.precio_unitario,
+      total: v.total,
+    })),
+    total: total,
+  });
 }
 
-async function eliminarVenta(id) {
-  const venta = await leer(id, "ventas");
-  if (!venta) return;
+// Construye el ticket (HTML) y lo muestra en el modal.
+function mostrarFactura(data) {
+  const etiquetaMetodo = data.metodo === "transferencia" ? "🏦 Transferencia" : "💵 Efectivo";
+  $("#factura-ticket").innerHTML =
+    '<div class="ticket-cabecera">' +
+      '<div class="ticket-nombre">' + escapeHTML(empresaActual ? empresaActual.nombre : "Konta") + '</div>' +
+      '<div class="ticket-meta">Factura ' + (data.numero || "") + ' · ' + formatearFecha(data.fecha) + '</div>' +
+      '<div class="ticket-meta">' + (data.cliente ? "Cliente: " + escapeHTML(data.cliente) : "Cliente: Consumidor final") + '</div>' +
+      '<div class="ticket-meta">' + etiquetaMetodo + '</div>' +
+    '</div>' +
+    data.items.map((it) =>
+      '<div class="ticket-fila">' +
+        '<span class="ticket-item">' + it.cantidad + ' × ' + escapeHTML(it.nombre) + '</span>' +
+        '<span class="ticket-precio">' + formatearCOP(it.total) + '</span>' +
+      '</div>'
+    ).join("") +
+    '<div class="ticket-total"><span>TOTAL</span><span>' + formatearCOP(data.total) + '</span></div>' +
+    '<div class="ticket-pie">¡Gracias por tu compra!</div>';
+  $("#modal-factura").classList.remove("oculto");
+}
 
-  if (!window.confirm("¿Eliminar esta venta? Se devolverá el stock al producto.")) return;
+function escapeHTML(texto) {
+  return String(texto || "").replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
 
-  const producto = productos.find((p) => p.id === venta.producto_id);
-  if (producto) {
-    producto.stock += venta.cantidad;
-    await guardar(producto, "productos");
+function cerrarFactura() {
+  $("#modal-factura").classList.add("oculto");
+}
+
+function imprimirFactura() {
+  const ticket = $("#factura-ticket").innerHTML;
+  $("#factura-imprimir").innerHTML = '<div class="ticket-factura">' + ticket + '</div>';
+  window.print();
+}
+
+// Elimina una factura completa: restaura el stock y borra todas sus líneas.
+async function eliminarFactura(facturaId) {
+  const lineas = ventas.filter((v) => v.factura_id === facturaId);
+  if (lineas.length === 0) return;
+  const primera = lineas[0];
+  if (!window.confirm("¿Eliminar la factura " + (primera.numero_factura || facturaId) + "? Se devolverá el stock.")) return;
+
+  for (const linea of lineas) {
+    const producto = productos.find((p) => p.id === linea.producto_id);
+    if (producto) {
+      producto.stock += linea.cantidad;
+      await guardar(producto, "productos");
+    }
+    await eliminar(linea.id, "ventas");
   }
-  await eliminar(id, "ventas");
-  toast("Venta eliminada y stock restaurado.");
+  toast("Factura eliminada y stock restaurado.");
   await recargarTodo();
+  notificarStockBajo();
 }
 
 // ---------------------------------------------------------------------------
@@ -2379,8 +2606,18 @@ function configurarEventos() {
     weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
 
-  // Ventas
-  $("#form-venta").addEventListener("submit", registrarVenta);
+  // Ventas / facturación
+  $("#btn-agregar-item").addEventListener("click", agregarItemFactura);
+  $("#factura-item-producto").addEventListener("change", () => renderVentas());
+  $("#btn-registrar-factura").addEventListener("click", registrarFactura);
+  $("#btn-cerrar-factura").addEventListener("click", cerrarFactura);
+  $("#btn-imprimir-factura").addEventListener("click", imprimirFactura);
+  $("#factura-item-cantidad").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      agregarItemFactura();
+    }
+  });
   $$("#filtros-ventas .filtro-btn").forEach((b) =>
     b.addEventListener("click", () => {
       filtroVentas = Number(b.dataset.dias);
@@ -2404,6 +2641,7 @@ function configurarEventos() {
     actualizarCampoCostoInsumo();
   });
   $("#modal-producto").addEventListener("click", (e) => {
+
     if (e.target === $("#modal-producto")) cerrarModalProducto();
   });
   $("#buscador-productos").addEventListener("input", (e) => {
@@ -2424,6 +2662,11 @@ function configurarEventos() {
   $("#btn-cancelar-receta").addEventListener("click", cerrarModalReceta);
   $("#modal-receta").addEventListener("click", (e) => {
     if (e.target === $("#modal-receta")) cerrarModalReceta();
+  });
+
+  // Factura (ticket)
+  $("#modal-factura").addEventListener("click", (e) => {
+    if (e.target === $("#modal-factura")) cerrarFactura();
   });
 
   // Producir

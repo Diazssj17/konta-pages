@@ -161,28 +161,49 @@
         </div>
       </section>
 
-      <!-- ============ VISTA: VENTAS ============ -->
+      <!-- ============ VISTA: VENTAS (facturación) ============ -->
       <section id="vista-ventas" class="vista">
         <div class="panel">
-          <h2>Registrar venta</h2>
-          <form id="form-venta" class="formulario">
-            <label>Producto
-              <select id="venta-producto" required></select>
-            </label>
+          <h2>🧾 Nueva factura</h2>
+          <form id="form-factura" class="formulario">
             <div class="fila-form">
-              <label>Cantidad
-                <input type="number" id="venta-cantidad" min="1" value="1" required />
+              <label>Factura N°
+                <input type="text" id="factura-numero" readonly />
               </label>
               <label>Fecha
-                <input type="date" id="venta-fecha" required />
+                <input type="date" id="factura-fecha" required />
               </label>
             </div>
-            <button type="submit" class="btn btn-primario">Registrar venta</button>
+            <label>Cliente
+              <input type="text" id="factura-cliente" placeholder="Nombre del cliente (opcional)" autocomplete="off" />
+            </label>
+            <label>Método de pago</label>
+            <div class="metodo-pago" id="metodo-pago">
+              <label class="metodo-opcion">
+                <input type="radio" name="metodo" value="efectivo" checked />
+                <span class="metodo-emoji">💵</span> Efectivo
+              </label>
+              <label class="metodo-opcion">
+                <input type="radio" name="metodo" value="transferencia" />
+                <span class="metodo-emoji">🏦</span> Transferencia
+              </label>
+            </div>
+            <div class="agregar-item">
+              <select id="factura-item-producto" required></select>
+              <input type="number" id="factura-item-cantidad" min="1" value="1" required />
+              <button type="button" id="btn-agregar-item" class="btn btn-secundario">+ Agregar</button>
+            </div>
           </form>
+          <div id="factura-items" class="lista-vacia">Sin productos agregados.</div>
+          <div class="factura-total">
+            <span class="factura-total-etiqueta">Total</span>
+            <span id="factura-total" class="kpi-valor">$ 0</span>
+          </div>
+          <button type="button" id="btn-registrar-factura" class="btn btn-primario">Registrar factura</button>
         </div>
 
         <div class="panel">
-          <h2>Historial de ventas</h2>
+          <h2>Historial de facturas</h2>
           <div id="filtros-ventas" class="filtros">
             <button data-dias="7" class="filtro-btn activo">7 días</button>
             <button data-dias="15" class="filtro-btn">15 días</button>
@@ -507,6 +528,21 @@
     </div>
   </div>
 
+  <!-- ============ MODAL: FACTURA (ticket) ============ -->
+  <div id="modal-factura" class="modal oculto">
+    <div class="modal-contenido modal-factura-ancho">
+      <h2 id="factura-modal-titulo">🧾 Factura</h2>
+      <div id="factura-ticket" class="ticket-factura"></div>
+      <div class="modal-acciones">
+        <button type="button" id="btn-cerrar-factura" class="btn btn-secundario">Cerrar</button>
+        <button type="button" id="btn-imprimir-factura" class="btn btn-primario">🖨️ Imprimir</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contenedor de impresión (solo visible al imprimir) -->
+  <div id="factura-imprimir" class="imprimir-solo"></div>
+
   <!-- ============ MODAL: AYUDA Y USO DE DATOS ============ -->
   <div id="modal-ayuda" class="modal oculto">
     <div class="modal-contenido">
@@ -515,7 +551,7 @@
       <h3 class="ayuda-titulo">¿Cómo usar Konta?</h3>
       <ul class="guia-lista">
         <li><strong>📦 Productos:</strong> agrega tus productos con precio, costo y stock. Marca <em>"Es insumo"</em> si es un ingrediente para recetas.</li>
-        <li><strong>💰 Ventas:</strong> registra cada venta eligiendo el producto y la cantidad.</li>
+        <li><strong>🧾 Ventas:</strong> crea una factura con uno o varios productos, elige si pagaron en <em>efectivo</em> o <em>transferencia</em> y podrás imprimir el ticket.</li>
         <li><strong>🏭 Producir:</strong> elige un producto con receta para ver los insumos necesarios y registrar la producción.</li>
         <li><strong>📈 Análisis:</strong> revisa tus ingresos, categorías, ranking de productos y utilidad.</li>
         <li><strong>⚙️ Config:</strong> exporta o importa Excel, activa alertas de stock bajo y administra tu cuenta.</li>
