@@ -1245,72 +1245,88 @@ body {
   color: #1e40af;
 }
 
-.modal-factura-ancho {
-  max-width: 420px;
+/* Pantalla completa de la factura */
+.vista-factura {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  background: var(--fondo);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.ticket-factura {
-  background: #ffffff;
-  border: 1px dashed var(--borde);
-  border-radius: 12px;
-  padding: 16px;
-  font-size: 13px;
-  color: var(--texto);
-  max-height: 60vh;
+.factura-pagina {
+  flex: 1;
   overflow-y: auto;
+  background: #ffffff;
+  margin: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--borde);
+  padding: 20px 16px;
+  font-size: 14px;
+  color: var(--texto);
 }
 
-.ticket-cabecera {
+.factura-pagina-cabecera {
   text-align: center;
   border-bottom: 1px dashed var(--borde);
-  padding-bottom: 10px;
-  margin-bottom: 10px;
+  padding-bottom: 14px;
+  margin-bottom: 12px;
 }
 
-.ticket-nombre {
-  font-size: 17px;
+.factura-pagina-nombre {
+  font-size: 20px;
   font-weight: 800;
   color: var(--primario);
 }
 
-.ticket-meta {
-  font-size: 12px;
+.factura-pagina-meta {
+  font-size: 13px;
   color: var(--texto-suave);
-  margin-top: 2px;
+  margin-top: 3px;
 }
 
-.ticket-fila {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 5px 0;
-}
-
-.ticket-fila .ticket-item {
-  flex: 1;
-  min-width: 0;
-}
-
-.ticket-fila .ticket-precio {
-  white-space: nowrap;
+.factura-pagina-cliente {
+  font-size: 13px;
   font-weight: 600;
+  color: var(--texto);
+  margin-top: 8px;
 }
 
-.ticket-total {
+.factura-pagina-metodo {
+  margin-top: 10px;
+}
+
+.factura-pagina-total {
   display: flex;
   justify-content: space-between;
   border-top: 1px dashed var(--borde);
-  margin-top: 10px;
-  padding-top: 10px;
-  font-size: 15px;
+  margin-top: 12px;
+  padding-top: 12px;
+  font-size: 17px;
   font-weight: 800;
 }
 
-.ticket-pie {
+.factura-pagina-pie {
   text-align: center;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--texto-suave);
-  margin-top: 12px;
+  margin-top: 16px;
+}
+
+.factura-pagina-acciones {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom));
+}
+
+.factura-pagina-acciones .btn {
+  flex: 1;
 }
 
 /* Contenedor de impresión: oculto en pantalla, visible solo al imprimir */
@@ -1337,10 +1353,9 @@ body {
     padding: 0;
   }
 
-  #factura-imprimir .ticket-factura {
+  #factura-imprimir .factura-pagina {
+    margin: 0;
     border: none;
     border-radius: 0;
-    max-height: none;
-    overflow: visible;
   }
 }

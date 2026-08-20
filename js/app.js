@@ -1131,25 +1131,27 @@ function verFactura(facturaId) {
   });
 }
 
-// Construye el ticket (HTML) y lo muestra en el modal.
+// Construye la factura (HTML) y la muestra en pantalla completa.
 function mostrarFactura(data) {
-  const etiquetaMetodo = data.metodo === "transferencia" ? "🏦 Transferencia" : "💵 Efectivo";
-  $("#factura-ticket").innerHTML =
-    '<div class="ticket-cabecera">' +
-      '<div class="ticket-nombre">' + escapeHTML(empresaActual ? empresaActual.nombre : "Konta") + '</div>' +
-      '<div class="ticket-meta">Factura ' + (data.numero || "") + ' · ' + formatearFecha(data.fecha) + '</div>' +
-      '<div class="ticket-meta">' + (data.cliente ? "Cliente: " + escapeHTML(data.cliente) : "Cliente: Consumidor final") + '</div>' +
-      '<div class="ticket-meta">' + etiquetaMetodo + '</div>' +
-    '</div>' +
-    data.items.map((it) =>
-      '<div class="ticket-fila">' +
-        '<span class="ticket-item">' + it.cantidad + ' × ' + escapeHTML(it.nombre) + '</span>' +
-        '<span class="ticket-precio">' + formatearCOP(it.total) + '</span>' +
-      '</div>'
-    ).join("") +
-    '<div class="ticket-total"><span>TOTAL</span><span>' + formatearCOP(data.total) + '</span></div>' +
-    '<div class="ticket-pie">¡Gracias por tu compra!</div>';
-  $("#modal-factura").classList.remove("oculto");
+  const esTransferencia = data.metodo === "transferencia";
+  const etiquetaMetodo = esTransferencia ? "🏦 Transferencia" : "💵 Efectivo";
+  $("#factura-pagina-nombre").textContent = empresaActual ? empresaActual.nombre : "Konta";
+  $("#factura-pagina-meta").textContent = "Factura " + (data.numero || "") + " · " + formatearFecha(data.fecha);
+  $("#factura-pagina-cliente").textContent = data.cliente ? "Cliente: " + data.cliente : "Cliente: Consumidor final";
+  const badge = $("#factura-pagina-metodo");
+  badge.textContent = etiquetaMetodo;
+  badge.className = "factura-badge " + (esTransferencia ? "transferencia" : "efectivo");
+  $("#factura-pagina-items").innerHTML = data.items.map((it) =>
+    '<div class="factura-item">' +
+      '<div class="factura-item-info">' +
+        '<div class="factura-item-nombre">' + escapeHTML(it.nombre) + '</div>' +
+        '<div class="factura-item-detalle">' + it.cantidad + ' × ' + formatearCOP(it.precio) + '</div>' +
+      '</div>' +
+      '<div class="factura-item-subtotal">' + formatearCOP(it.total) + '</div>' +
+    '</div>'
+  ).join("");
+  $("#factura-pagina-total").textContent = formatearCOP(data.total);
+  $("#vista-factura").classList.remove("oculto");
 }
 
 function escapeHTML(texto) {
@@ -1159,12 +1161,13 @@ function escapeHTML(texto) {
 }
 
 function cerrarFactura() {
-  $("#modal-factura").classList.add("oculto");
+  $("#vista-factura").classList.add("oculto");
+  cambiarVista("ventas");
 }
 
 function imprimirFactura() {
-  const ticket = $("#factura-ticket").innerHTML;
-  $("#factura-imprimir").innerHTML = '<div class="ticket-factura">' + ticket + '</div>';
+  const pagina = $("#vista-factura .factura-pagina").innerHTML;
+  $("#factura-imprimir").innerHTML = '<div class="factura-pagina">' + pagina + '</div>';
   window.print();
 }
 
@@ -2610,7 +2613,7 @@ function configurarEventos() {
   $("#btn-agregar-item").addEventListener("click", agregarItemFactura);
   $("#factura-item-producto").addEventListener("change", () => renderVentas());
   $("#btn-registrar-factura").addEventListener("click", registrarFactura);
-  $("#btn-cerrar-factura").addEventListener("click", cerrarFactura);
+  $("#btn-volver-factura").addEventListener("click", cerrarFactura);
   $("#btn-imprimir-factura").addEventListener("click", imprimirFactura);
   $("#factura-item-cantidad").addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -2662,11 +2665,6 @@ function configurarEventos() {
   $("#btn-cancelar-receta").addEventListener("click", cerrarModalReceta);
   $("#modal-receta").addEventListener("click", (e) => {
     if (e.target === $("#modal-receta")) cerrarModalReceta();
-  });
-
-  // Factura (ticket)
-  $("#modal-factura").addEventListener("click", (e) => {
-    if (e.target === $("#modal-factura")) cerrarFactura();
   });
 
   // Producir

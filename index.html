@@ -528,15 +528,25 @@
     </div>
   </div>
 
-  <!-- ============ MODAL: FACTURA (ticket) ============ -->
-  <div id="modal-factura" class="modal oculto">
-    <div class="modal-contenido modal-factura-ancho">
-      <h2 id="factura-modal-titulo">🧾 Factura</h2>
-      <div id="factura-ticket" class="ticket-factura"></div>
-      <div class="modal-acciones">
-        <button type="button" id="btn-cerrar-factura" class="btn btn-secundario">Cerrar</button>
-        <button type="button" id="btn-imprimir-factura" class="btn btn-primario">🖨️ Imprimir</button>
+  <!-- ============ VISTA: FACTURA (pantalla completa del ticket) ============ -->
+  <div id="vista-factura" class="vista-factura oculto">
+    <div class="factura-pagina" id="factura-pagina">
+      <div class="factura-pagina-cabecera">
+        <div class="factura-pagina-nombre" id="factura-pagina-nombre">Mi Negocio</div>
+        <div class="factura-pagina-meta" id="factura-pagina-meta">Factura</div>
+        <div class="factura-pagina-cliente" id="factura-pagina-cliente">Cliente: Consumidor final</div>
+        <div class="factura-badge" id="factura-pagina-metodo">💵 Efectivo</div>
       </div>
+      <div id="factura-pagina-items"></div>
+      <div class="factura-pagina-total">
+        <span>TOTAL</span>
+        <span id="factura-pagina-total">$ 0</span>
+      </div>
+      <div class="factura-pagina-pie">¡Gracias por tu compra!</div>
+    </div>
+    <div class="factura-pagina-acciones">
+      <button type="button" id="btn-volver-factura" class="btn btn-secundario">← Volver</button>
+      <button type="button" id="btn-imprimir-factura" class="btn btn-primario">🖨️ Imprimir</button>
     </div>
   </div>
 
