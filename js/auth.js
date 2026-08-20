@@ -266,6 +266,20 @@ function cerrarSesion() {
   localStorage.removeItem(SESION_CLAVE);
 }
 
+// Sesión automática (modo de un solo usuario, sin login): asegura que exista
+// el administrador y deja su sesión activa directamente.
+async function iniciarSesionAuto() {
+  await sembrarAdminInicial();
+  const admin = await leer("admin@konta.app", STORE);
+  if (!admin) return { ok: false };
+  if (admin.debe_cambiar_clave) {
+    admin.debe_cambiar_clave = false;
+    await guardar(admin, STORE);
+  }
+  localStorage.setItem(SESION_CLAVE, admin.email);
+  return { ok: true, usuario: admin };
+}
+
 // ---------------------------------------------------------------------------
 // Recuperación de contraseña (pregunta de seguridad)
 // ---------------------------------------------------------------------------
@@ -297,6 +311,7 @@ export {
   eliminarUsuario,
   listarUsuarios,
   iniciarSesion,
+  iniciarSesionAuto,
   obtenerSesion,
   correoSesion,
   cerrarSesion,

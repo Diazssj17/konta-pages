@@ -11,7 +11,7 @@ import {
 } from "./db.js";
 import {
   sembrarAdminInicial, crearUsuario, cambiarContrasena, eliminarUsuario,
-  listarUsuarios, iniciarSesion, obtenerSesion, correoSesion,
+  listarUsuarios, iniciarSesion, iniciarSesionAuto, obtenerSesion, correoSesion,
   cerrarSesion, recuperarContrasena,
 } from "./auth.js";
 import {
@@ -63,6 +63,8 @@ let empresaActual = null;  // empresa seleccionada (objeto), solo para usuarios
 const CLAVE_EMPRESA = "konta_empresa";
 const CLAVE_REVISION = "konta_revision";  // id de la empresa que el admin revisa
 const CLAVE_ACEPTA_DATOS = "konta_acepta_datos";  // email que autorizó el uso de datos
+const CLAVE_LIMPIEZA = "konta_limpio_auto";  // marca la limpieza única al actualizar
+const EMPRESA_AUTO = "Mi Negocio";  // nombre de la empresa única en modo local
 let modoRevision = false;  // el admin está revisando los datos de una empresa
 
 // ---------------------------------------------------------------------------
@@ -380,19 +382,9 @@ async function entrarApp() {
 }
 
 function manejarCerrarSesion() {
-  cerrarSesion();
-  usuarioActual = null;
-  empresaActual = null;
-  modoRevision = false;
-  localStorage.removeItem(CLAVE_EMPRESA);
-  localStorage.removeItem(CLAVE_REVISION);
-  $("#nav-admin").classList.add("oculto");
-  $("#btn-ayuda").classList.add("oculto");
-  $("#btn-volver-admin").classList.add("oculto");
-  mostrarPantallaAuth(true);
-  llenarLoginEmpresas();
-  cambiarFormAuth("login");
-  $("#form-login").reset();
+  // En modo de un solo usuario no hay pantalla de login: recargamos y la app
+  // vuelve a entrar automáticamente.
+  location.reload();
 }
 
 // ---------------------------------------------------------------------------
@@ -442,6 +434,74 @@ async function entrarRevision(empresaId) {
   actualizarEstadoNotif();
   notificarStockBajo();
   programarSync();
+}
+
+// ---------------------------------------------------------------------------
+// Modo de un solo usuario (sin login)
+// ---------------------------------------------------------------------------
+
+// Limpieza única al actualizar a esta versión: borra todas las bases de datos
+// antiguas del dispositivo y deja la app vacía para empezar de cero.
+async function limpiezaUnica() {
+  if (localStorage.getItem(CLAVE_LIMPIEZA) === "1") return;
+  localStorage.setItem(CLAVE_LIMPIEZA, "1");
+  try { cerrarTodasConexiones(); } catch (e) { /* noop */ }
+  try {
+    const bds = await indexedDB.databases();
+    for (const { name } of bds || []) {
+      if (name && (name.startsWith("konta") || name === "minegocio_db")) {
+        await new Promise((resolver) => {
+          const peticion = indexedDB.deleteDatabase(name);
+          peticion.onsuccess = peticion.onerror = peticion.onblocked = () => resolver();
+        });
+      }
+    }
+  } catch (e) { /* noop */ }
+  for (const clave of [CLAVE_EMPRESA, CLAVE_REVISION, "konta_sesion", "konta_migrado_v6", "konta_acepta_datos"]) {
+    try { localStorage.removeItem(clave); } catch (e) { /* noop */ }
+  }
+}
+
+// Entrada directa a la app: crea (si hace falta) una empresa única vacía y abre
+// el panel de inicio sin login. No siembra datos de ejemplo.
+async function entrarSolo() {
+  let empresas = await listarEmpresas();
+  let empresa = empresas[0] || null;
+  if (!empresa) {
+    try {
+      empresa = await crearEmpresa(EMPRESA_AUTO, { sinDatos: true });
+    } catch (err) {
+      console.error("No se pudo crear la empresa inicial:", err);
+    }
+    empresas = await listarEmpresas();
+    empresa = empresa || empresas[0] || null;
+  }
+  if (!empresa) {
+    toast("No se pudo crear la empresa.", "error");
+    return;
+  }
+
+  empresaActual = empresa;
+  modoRevision = true;
+  localStorage.setItem(CLAVE_EMPRESA, String(empresa.id));
+  localStorage.removeItem(CLAVE_REVISION);
+  mostrarPantallaAuth(false);
+  $("#nav-admin").classList.add("oculto");
+  $("#btn-ayuda").classList.add("oculto");
+  $("#btn-volver-admin").classList.add("oculto");
+  $("#btn-cerrar-sesion-top").classList.add("oculto");
+  $("#btn-cerrar-sesion").classList.add("oculto");
+  try {
+    await cargarDatos();
+  } catch (err) {
+    console.error("Error al cargar los datos:", err);
+  }
+  $("#config-correo-sesion").textContent = "";
+  $("#config-empresa-nombre").textContent = empresa.nombre;
+  cambiarVista("dashboard");
+  actualizarAlertas();
+  actualizarEstadoNotif();
+  notificarStockBajo();
 }
 
 // ---------------------------------------------------------------------------
@@ -2501,37 +2561,21 @@ async function inicializar() {
     if (correoSesion()) programarSync();
   });
 
-  // Migración única desde la versión anterior (una sola BD con empresa_id).
+  // Limpieza única al actualizar: borra las bases antiguas (empezar de cero).
+  await limpiezaUnica();
+
+  // Migración desde la versión anterior (ya no aplica tras la limpieza).
   try {
     await migrarDesdeAntigua();
   } catch (err) {
     console.warn("No se pudo migrar la base de datos anterior:", err);
   }
-  // El administrador global se crea la primera vez.
-  await sembrarAdminInicial();
-  await llenarLoginEmpresas();
 
-  // Bloqueamos la app hasta que haya una sesión activa.
-  const sesion = await obtenerSesion();
-  if (sesion) {
-    usuarioActual = sesion;
-    if (esAdmin()) {
-      // Si el admin estaba revisando una empresa, reanuda esa revisión.
-      const revisionId = localStorage.getItem(CLAVE_REVISION);
-      if (revisionId) {
-        await entrarRevision(revisionId);
-      } else {
-        await entrarAdmin();
-      }
-    } else if (usuarioActual.debe_cambiar_clave) {
-      // No se puede reanudar una sesión a medias: forzamos login.
-      cerrarSesion();
-      usuarioActual = null;
-      mostrarPantallaAuth(true);
-      cambiarFormAuth("login");
-    } else {
-      await entrarApp();
-    }
+  // Modo de un solo usuario: sesión automática y entrada directa a la app.
+  const auto = await iniciarSesionAuto();
+  if (auto.ok) {
+    usuarioActual = auto.usuario;
+    await entrarSolo();
   } else {
     mostrarPantallaAuth(true);
     cambiarFormAuth("login");

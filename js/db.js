@@ -287,7 +287,8 @@ function leerTodosDeEmpresa(empresaId, nombreStore) {
 // ---------------------------------------------------------------------------
 
 // Crea una empresa nueva: la registra en la BD global y crea su BD de datos.
-async function crearEmpresa(nombre) {
+// Con opciones.sinDatos = true no siembra datos de ejemplo (queda vacía).
+async function crearEmpresa(nombre, opciones) {
   const nombreLimpio = String(nombre || "").trim();
   if (!nombreLimpio) throw new Error("El nombre de la empresa es obligatorio.");
 
@@ -300,7 +301,7 @@ async function crearEmpresa(nombre) {
 
   // Creamos la BD propia de la empresa y sembramos datos de ejemplo.
   await abrirBDEmpresa(id);
-  await sembrarDatosSiVacio(id);
+  if (!(opciones && opciones.sinDatos)) await sembrarDatosSiVacio(id);
 
   return empresa;
 }
