@@ -15,7 +15,7 @@
  * recetas (con clave compuesta empresa_id + id).
  */
 
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./supabase-config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, MODO_LOCAL } from "./supabase-config.js";
 import {
   leer, leerTodos, listarEmpresas, aplicarRegistro, aplicarEliminacion,
   leerTodosDeEmpresa, leerTumbas, limpiarTumba,
@@ -39,6 +39,7 @@ let sincronizando = false;
 // Cliente Supabase (se crea una sola vez)
 // ---------------------------------------------------------------------------
 export function obtenerCliente() {
+  if (MODO_LOCAL) return null;
   if (cliente) return cliente;
   if (!window.supabase) return null;
   cliente = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -70,6 +71,7 @@ export async function haySesionNube() {
 // existe la cuenta en la nube, la crea (requiere que Supabase tenga activado
 // el proveedor Email y desactivada la confirmación de correo).
 export async function vincularCuenta(correo, contrasena) {
+  if (MODO_LOCAL) return { ok: true };
   const sb = obtenerCliente();
   if (!sb) return { ok: false, error: "La nube no está disponible en este dispositivo." };
   if (!navigator.onLine) return { ok: false, error: "Sin conexión a internet." };
@@ -105,6 +107,7 @@ export async function vincularCuenta(correo, contrasena) {
 // Inicia sesión SOLO en la nube (para activar un dispositivo nuevo que aún no
 // tiene los datos locales). Usa las credenciales de Supabase Auth.
 export async function bootstrapDesdeNube(correo, contrasena) {
+  if (MODO_LOCAL) return { ok: false, error: "Esta versión es solo local." };
   const sb = obtenerCliente();
   if (!sb || !navigator.onLine) return { ok: false, error: "Sin conexión a internet." };
   try {
@@ -361,6 +364,7 @@ async function fusionarFilaPropiaUsuario(sb, usuario) {
 // Sincroniza todo lo accesible para el usuario con sesión activa.
 // Devuelve { ok, aplicados }.
 export async function sincronizarTodo(correo) {
+  if (MODO_LOCAL) return { ok: true, aplicados: false };
   const sb = obtenerCliente();
   if (!sb) return { ok: false, error: "La nube no está disponible." };
   if (!navigator.onLine) return { ok: false, error: "Sin conexión a internet." };

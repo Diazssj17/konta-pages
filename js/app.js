@@ -18,6 +18,7 @@ import {
   vincularCuenta, reclamarFilaUsuario, sincronizarTodo, actualizarClaveNube,
   bootstrapDesdeNube, haySesionNube, obtenerCliente,
 } from "./sync.js";
+import { MODO_LOCAL } from "./supabase-config.js";
 import {
   formatearCOP, formatearFecha, hoyISO, haceDiasISO,
   calcularKPIs, productoMasVendido, ventasPorDia, ventasPorMes,
@@ -73,6 +74,12 @@ const SYNC_ESPERA = 2500;   // espera para agrupar cambios antes de sincronizar
 function actualizarIndicadorSync(estado) {
   const el = $("#sync-estado");
   if (!el) return;
+  if (MODO_LOCAL) {
+    el.textContent = "💾";
+    el.className = "sync-estado";
+    el.title = "Modo local: los datos se guardan solo en este teléfono";
+    return;
+  }
   if (estado === "syncing") {
     el.textContent = "🔄";
     el.className = "sync-estado activo";
@@ -90,12 +97,17 @@ function actualizarIndicadorSync(estado) {
 
 // Programa una sincronización (agrupa varios cambios seguidos).
 function programarSync() {
+  if (MODO_LOCAL) return;
   clearTimeout(temporizadorSync);
   temporizadorSync = setTimeout(() => ejecutarSync(), SYNC_ESPERA);
 }
 
 // Ejecuta la sincronización y refresca la vista si la nube trajo cambios.
 async function ejecutarSync() {
+  if (MODO_LOCAL) {
+    actualizarIndicadorSync("offline");
+    return;
+  }
   const correo = correoSesion();
   if (!correo) return;
   if (!navigator.onLine) {
@@ -205,7 +217,7 @@ async function manejarLogin(e) {
 
   // Si la cuenta no existe localmente (dispositivo nuevo), la activamos desde
   // la nube con la misma contraseña y bajamos todos sus datos.
-  if (!resultado.ok && navigator.onLine &&
+  if (!MODO_LOCAL && !resultado.ok && navigator.onLine &&
       resultado.error && resultado.error.indexOf("No existe una cuenta") !== -1) {
     $("#login-error").textContent = "Activando cuenta desde la nube…";
     const act = await bootstrapDesdeNube(correo, contrasena);
