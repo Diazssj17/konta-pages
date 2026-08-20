@@ -41,6 +41,10 @@ let terminoBusquedaClientes = "";
 let productoRecetaActual = null; // producto cuya receta se está viendo/ editando
 let itemsFactura = [];  // productos agregados a la factura en construcción
 
+// Imagen del producto en edición y caché de URLs de objeto para miniaturas.
+let imagenProductoTemporal = null;
+const urlsImagenes = new Map();
+
 // ---------------------------------------------------------------------------
 // Utilidades DOM
 // ---------------------------------------------------------------------------
@@ -719,6 +723,7 @@ function renderVista(nombre) {
   if (nombre === "ventas") renderVentas();
   if (nombre === "clientes") renderClientes();
   if (nombre === "productos") renderProductos();
+  if (nombre === "catalogo") renderCatalogo();
   if (nombre === "analisis") renderAnalisis();
   if (nombre === "admin") renderAdmin();
 }
@@ -1416,6 +1421,52 @@ async function eliminarCliente(id) {
 // ---------------------------------------------------------------------------
 // PRODUCTOS
 // ---------------------------------------------------------------------------
+// Devuelve una URL de objeto para la imagen de un producto (con caché).
+function urlImagenDe(p) {
+  if (!p || !(p.imagen instanceof Blob)) return null;
+  if (urlsImagenes.has(p.id)) return urlsImagenes.get(p.id);
+  const url = URL.createObjectURL(p.imagen);
+  urlsImagenes.set(p.id, url);
+  return url;
+}
+
+// Escala la imagen elegida a un máximo de 700 px y la devuelve como JPEG (Blob).
+function procesarImagen(archivo) {
+  return new Promise((resolver, rechazar) => {
+    const lector = new FileReader();
+    lector.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        let w = img.width, h = img.height;
+        const max = 700;
+        if (w > max || h > max) {
+          const escala = max / Math.max(w, h);
+          w = Math.round(w * escala);
+          h = Math.round(h * escala);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob((blob) => (blob ? resolver(blob) : rechazar(new Error("sin imagen"))), "image/jpeg", 0.82);
+      };
+      img.onerror = () => rechazar(new Error("imagen inválida"));
+      img.src = lector.result;
+    };
+    lector.onerror = rechazar;
+    lector.readAsDataURL(archivo);
+  });
+}
+
+// Blob -> data URL (para exportar JSON).
+function blobABase64(blob) {
+  return new Promise((resolver) => {
+    const lector = new FileReader();
+    lector.onload = () => resolver(lector.result);
+    lector.readAsDataURL(blob);
+  });
+}
+
 function renderProductos() {
   let lista = productos.slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
   if (terminoBusqueda) {
@@ -1436,9 +1487,16 @@ function crearFilaProducto(p) {
   const fila = document.createElement("div");
   fila.className = "fila-lista";
 
-  const emoji = document.createElement("span");
+  const imgUrl = urlImagenDe(p);
+  const emoji = document.createElement(imgUrl ? "img" : "span");
   emoji.className = "fila-emoji";
-  emoji.textContent = p.emoji || "📦";
+  if (imgUrl) {
+    emoji.src = imgUrl;
+    emoji.alt = p.nombre;
+    emoji.classList.add("fila-miniatura");
+  } else {
+    emoji.textContent = p.emoji || "📦";
+  }
 
   const info = document.createElement("div");
   info.className = "fila-info";
@@ -1509,6 +1567,68 @@ function crearFilaProducto(p) {
   fila.appendChild(info);
   fila.appendChild(derecha);
   return fila;
+}
+
+// ---------------------------------------------------------------------------
+// CATÁLOGO
+// ---------------------------------------------------------------------------
+let terminoBusquedaCatalogo = "";
+
+function renderCatalogo() {
+  const caja = $("#lista-catalogo");
+  caja.innerHTML = "";
+  let lista = productos.filter((p) => !p.es_insumo).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  if (terminoBusquedaCatalogo) {
+    const t = terminoBusquedaCatalogo.toLowerCase();
+    lista = lista.filter((p) => p.nombre.toLowerCase().includes(t));
+  }
+  if (lista.length === 0) {
+    caja.textContent = terminoBusquedaCatalogo
+      ? "Sin resultados."
+      : "Aún no hay productos en el catálogo. Agrega uno con + Nuevo o añade productos en la pestaña Productos.";
+    return;
+  }
+
+  lista.forEach((p) => {
+    const tarjeta = document.createElement("div");
+    tarjeta.className = "tarjeta-catalogo";
+
+    const imgUrl = urlImagenDe(p);
+    if (imgUrl) {
+      const foto = document.createElement("img");
+      foto.className = "tarjeta-imagen";
+      foto.src = imgUrl;
+      foto.alt = p.nombre;
+      foto.loading = "lazy";
+      tarjeta.appendChild(foto);
+    } else {
+      const emoji = document.createElement("div");
+      emoji.className = "tarjeta-imagen tarjeta-emoji";
+      emoji.textContent = p.emoji || "📦";
+      tarjeta.appendChild(emoji);
+    }
+
+    const info = document.createElement("div");
+    info.className = "tarjeta-info";
+    const nombre = document.createElement("div");
+    nombre.className = "tarjeta-nombre";
+    nombre.textContent = p.nombre;
+    const precio = document.createElement("div");
+    precio.className = "tarjeta-precio";
+    precio.textContent = formatearCOP(p.precio);
+    info.appendChild(nombre);
+    info.appendChild(precio);
+    tarjeta.appendChild(info);
+
+    const btnEditar = document.createElement("button");
+    btnEditar.className = "btn-mini";
+    btnEditar.textContent = "✏️";
+    btnEditar.title = "Editar producto (imagen, precio…)";
+    btnEditar.onclick = () => abrirModalProducto(p);
+    tarjeta.appendChild(btnEditar);
+
+    caja.appendChild(tarjeta);
+  });
 }
 
 // Emojis disponibles para marcar un producto (incluye comida, bebida y genéricos).
@@ -1675,6 +1795,21 @@ function abrirModalProducto(p) {
   llenarSelectEmoji($("#producto-emoji"), p ? p.emoji : "🍰");
   $("#producto-es-insumo").checked = p ? !!p.es_insumo : false;
 
+  // Imagen: mostramos la vista previa si el producto ya tiene una.
+  imagenProductoTemporal = null;
+  $("#producto-imagen-input").value = "";
+  const preview = $("#producto-imagen-preview");
+  const urlImg = p ? urlImagenDe(p) : null;
+  if (urlImg) {
+    preview.src = urlImg;
+    preview.classList.remove("oculto");
+    $("#btn-quitar-imagen").classList.remove("oculto");
+  } else {
+    preview.removeAttribute("src");
+    preview.classList.add("oculto");
+    $("#btn-quitar-imagen").classList.add("oculto");
+  }
+
   // Si el producto tiene receta, mostramos el costo automático según sus insumos.
   const costoAuto = p ? calcularCostoProducto(p.id) : 0;
   const notaCosto = $("#producto-costo-nota");
@@ -1753,8 +1888,10 @@ async function guardarProducto(e) {
   // por unidad dividiendo entre el stock.
   const costoUnidad = (esInsumo && stock > 0) ? costo / stock : costo;
   const datos = { nombre, categoria, precio, costo, costo_unidad: costoUnidad, stock, stock_minimo: stockMinimo, unidad, emoji: emoji || "📦", es_insumo: esInsumo };
+  const anterior = id ? productos.find((p) => p.id === Number(id)) : null;
+  if (imagenProductoTemporal) datos.imagen = imagenProductoTemporal;
+  else if (anterior && anterior.imagen) datos.imagen = anterior.imagen;
   if (id) {
-    const anterior = productos.find((p) => p.id === Number(id));
     datos.id = Number(id);
     await guardar(datos, "productos");
     // Si el producto ahora es insumo, su receta ya no tiene sentido.
@@ -1767,6 +1904,7 @@ async function guardarProducto(e) {
     toast("Producto agregado.");
   }
   cerrarModalProducto();
+  if (id) urlsImagenes.delete(Number(id));
   await recargarTodo();
 
   // Si cambió el costo de un insumo, actualizamos el costo de los productos que lo usan.
@@ -1791,6 +1929,10 @@ async function limpiarRecetasDeProducto(productoId) {
 function cerrarModalProducto() {
   $("#modal-producto").classList.add("oculto");
   $("#form-producto").reset();
+  imagenProductoTemporal = null;
+  $("#producto-imagen-preview").classList.add("oculto");
+  $("#producto-imagen-preview").removeAttribute("src");
+  $("#btn-quitar-imagen").classList.add("oculto");
 }
 
 async function eliminarProducto(id) {
@@ -1798,6 +1940,7 @@ async function eliminarProducto(id) {
   if (!p) return;
   if (!window.confirm("¿Eliminar el producto '" + p.nombre + "'? Las ventas registradas se conservan.")) return;
   await eliminar(id, "productos");
+  urlsImagenes.delete(id);
   // Limpiamos las recetas que usan este producto como producto o insumo.
   await limpiarRecetasDeProducto(id);
   toast("Producto eliminado.");
@@ -2379,7 +2522,20 @@ function actualizarEstadoNotif() {
 // CONFIGURACIÓN: exportar / importar / limpiar
 // ---------------------------------------------------------------------------
 async function exportarDatos() {
-  const datos = { productos, ventas, clientes, exportado: new Date().toISOString() };
+  const productosExport = await Promise.all(
+    productos.map(async (p) => {
+      const copia = { ...p };
+      if (p.imagen instanceof Blob) {
+        try {
+          copia.imagen = await blobABase64(p.imagen);
+        } catch {
+          delete copia.imagen;
+        }
+      }
+      return copia;
+    })
+  );
+  const datos = { productos: productosExport, ventas, clientes, exportado: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2406,7 +2562,18 @@ async function procesarImportacion(e) {
     await limpiar("productos");
     await limpiar("ventas");
     await limpiar("clientes");
-    for (const p of datos.productos) await guardar(p, "productos");
+    for (const p of datos.productos) {
+      if (typeof p.imagen === "string" && p.imagen.startsWith("data:")) {
+        try {
+          p.imagen = await fetch(p.imagen).then((r) => r.blob());
+        } catch {
+          delete p.imagen;
+        }
+      } else if (typeof p.imagen !== "object") {
+        delete p.imagen;
+      }
+      await guardar(p, "productos");
+    }
     for (const v of datos.ventas) await guardar(v, "ventas");
     for (const c of (datos.clientes || [])) await guardar(c, "clientes");
     toast("Datos importados correctamente.");
@@ -2713,6 +2880,35 @@ function configurarEventos() {
   $("#buscador-productos").addEventListener("input", (e) => {
     terminoBusqueda = e.target.value.trim();
     renderProductos();
+  });
+
+  // Catálogo
+  $("#btn-catalogo-nuevo").addEventListener("click", () => abrirModalProducto(null));
+  $("#buscador-catalogo").addEventListener("input", (e) => {
+    terminoBusquedaCatalogo = e.target.value.trim();
+    renderCatalogo();
+  });
+
+  // Imagen del producto
+  $("#producto-imagen-input").addEventListener("change", async (e) => {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+    try {
+      imagenProductoTemporal = await procesarImagen(archivo);
+      const preview = $("#producto-imagen-preview");
+      preview.src = URL.createObjectURL(imagenProductoTemporal);
+      preview.classList.remove("oculto");
+      $("#btn-quitar-imagen").classList.remove("oculto");
+    } catch {
+      toast("No se pudo cargar la imagen.", "error");
+    }
+  });
+  $("#btn-quitar-imagen").addEventListener("click", () => {
+    imagenProductoTemporal = null;
+    $("#producto-imagen-input").value = "";
+    $("#producto-imagen-preview").classList.add("oculto");
+    $("#producto-imagen-preview").removeAttribute("src");
+    $("#btn-quitar-imagen").classList.add("oculto");
   });
 
   // Categorías

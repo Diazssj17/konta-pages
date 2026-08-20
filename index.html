@@ -247,6 +247,20 @@
         </div>
       </section>
 
+      <!-- ============ VISTA: CATÁLOGO ============ -->
+      <section id="vista-catalogo" class="vista">
+        <div class="panel">
+          <div class="encabezado-panel">
+            <h2>Catálogo de venta</h2>
+            <div class="acciones-encabezado">
+              <button id="btn-catalogo-nuevo" class="btn btn-primario btn-pequeno">+ Nuevo</button>
+            </div>
+          </div>
+          <input type="search" id="buscador-catalogo" class="buscador" placeholder="Buscar producto…" />
+          <div id="lista-catalogo" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
       <!-- ============ VISTA: ANÁLISIS ============ -->
       <section id="vista-analisis" class="vista">
         <div class="panel">
@@ -406,6 +420,9 @@
       <button class="nav-btn" data-vista="productos">
         <span class="nav-icono">📦</span><span>Productos</span>
       </button>
+      <button class="nav-btn" data-vista="catalogo">
+        <span class="nav-icono">🛍️</span><span>Catálogo</span>
+      </button>
       <button class="nav-btn" data-vista="analisis">
         <span class="nav-icono">📈</span><span>Análisis</span>
       </button>
@@ -462,6 +479,16 @@
         <label>Emoji
           <select id="producto-emoji"></select>
         </label>
+        <div class="campo-imagen">
+          <span class="campo-imagen-label">Imagen del catálogo</span>
+          <img id="producto-imagen-preview" class="imagen-preview oculto" alt="Vista previa" />
+          <div class="acciones-imagen">
+            <label class="btn btn-secundario btn-pequeno">📷 Elegir foto
+              <input type="file" id="producto-imagen-input" accept="image/*" class="oculto" />
+            </label>
+            <button type="button" id="btn-quitar-imagen" class="btn btn-secundario btn-pequeno oculto">✕ Quitar</button>
+          </div>
+        </div>
         <label class="interruptor">
           <input type="checkbox" id="producto-es-insumo" />
           <span class="interruptor-carril"></span>
@@ -586,6 +613,7 @@
       <h3 class="ayuda-titulo">¿Cómo usar Konta?</h3>
       <ul class="guia-lista">
         <li><strong>📦 Productos:</strong> agrega tus productos con precio, costo y stock. Marca <em>"Es insumo"</em> si es un ingrediente para recetas.</li>
+        <li><strong>🛍️ Catálogo:</strong> muestra tus productos con foto, nombre y precio para mostrárselo a tus clientes. Puedes agregar una imagen a cada producto desde Productos o aquí.</li>
         <li><strong>🧾 Ventas:</strong> crea una factura con uno o varios productos, elige si pagaron en <em>efectivo</em> o <em>transferencia</em> y podrás imprimir el ticket.</li>
         <li><strong>📈 Análisis:</strong> revisa tus ingresos, categorías, ranking de productos y utilidad.</li>
         <li><strong>⚙️ Config:</strong> exporta o importa Excel, activa alertas de stock bajo y administra tu cuenta.</li>
