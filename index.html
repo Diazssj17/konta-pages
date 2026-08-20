@@ -175,7 +175,11 @@
               </label>
             </div>
             <label>Cliente
-              <input type="text" id="factura-cliente" placeholder="Nombre del cliente (opcional)" autocomplete="off" />
+              <div class="fila-cliente-factura">
+                <input type="text" id="factura-cliente" list="clientes-datalist" placeholder="Nombre del cliente (opcional)" autocomplete="off" />
+                <datalist id="clientes-datalist"></datalist>
+                <button type="button" id="btn-ver-clientes" class="btn btn-secundario btn-pequeno" title="Gestionar clientes">👥</button>
+              </div>
             </label>
             <label>Método de pago</label>
             <div class="metodo-pago" id="metodo-pago">
@@ -211,6 +215,20 @@
             <button data-dias="0" class="filtro-btn">Todo</button>
           </div>
           <div id="lista-ventas" class="lista-vacia">Cargando…</div>
+        </div>
+      </section>
+
+      <!-- ============ VISTA: CLIENTES ============ -->
+      <section id="vista-clientes" class="vista">
+        <div class="panel">
+          <div class="encabezado-panel">
+            <h2>👥 Mis clientes</h2>
+            <div class="acciones-encabezado">
+              <button id="btn-nuevo-cliente" class="btn btn-primario btn-pequeno">+ Nuevo</button>
+            </div>
+          </div>
+          <input type="search" id="buscador-clientes" class="buscador" placeholder="Buscar cliente…" />
+          <div id="lista-clientes" class="lista-vacia">Cargando…</div>
         </div>
       </section>
 
@@ -401,6 +419,9 @@
       <button class="nav-btn" data-vista="ventas">
         <span class="nav-icono">💰</span><span>Ventas</span>
       </button>
+      <button class="nav-btn" data-vista="clientes">
+        <span class="nav-icono">👥</span><span>Clientes</span>
+      </button>
       <button class="nav-btn" data-vista="productos">
         <span class="nav-icono">📦</span><span>Productos</span>
       </button>
@@ -470,6 +491,29 @@
         </label>
         <div class="modal-acciones">
           <button type="button" id="btn-cancelar-producto" class="btn btn-secundario">Cancelar</button>
+          <button type="submit" class="btn btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: CLIENTE ============ -->
+  <div id="modal-cliente" class="modal oculto">
+    <div class="modal-contenido">
+      <h2 id="cliente-modal-titulo">Nuevo cliente</h2>
+      <form id="form-cliente" class="formulario">
+        <input type="hidden" id="cliente-id" />
+        <label>Nombre
+          <input type="text" id="cliente-nombre" autocomplete="off" required />
+        </label>
+        <label>Teléfono (opcional)
+          <input type="tel" id="cliente-telefono" autocomplete="off" />
+        </label>
+        <label>Email (opcional)
+          <input type="email" id="cliente-email" autocomplete="off" />
+        </label>
+        <div class="modal-acciones">
+          <button type="button" id="btn-cancelar-cliente" class="btn btn-secundario">Cancelar</button>
           <button type="submit" class="btn btn-primario">Guardar</button>
         </div>
       </form>

@@ -33,9 +33,11 @@ let productos = [];
 let ventas = [];
 let categorias = [];
 let recetas = [];
+let clientes = [];
 let filtroVentas = 7;       // días de historial a mostrar en "Ventas"
 let periodoAnalisis = 7;    // "7" | "30" | "meses"
 let terminoBusqueda = "";
+let terminoBusquedaClientes = "";
 let productoRecetaActual = null; // producto cuya receta se está viendo/ editando
 let produccionSeleccionada = null; // cálculo actual de necesidades
 let itemsFactura = [];  // productos agregados a la factura en construcción
@@ -716,6 +718,7 @@ function cambiarVista(nombre) {
 function renderVista(nombre) {
   if (nombre === "dashboard") renderDashboard();
   if (nombre === "ventas") renderVentas();
+  if (nombre === "clientes") renderClientes();
   if (nombre === "productos") renderProductos();
   if (nombre === "producir") renderProducir();
   if (nombre === "analisis") renderAnalisis();
@@ -730,6 +733,7 @@ async function cargarDatos() {
   ventas = await leerTodos("ventas");
   categorias = await leerTodos("categorias");
   recetas = await leerTodos("recetas");
+  try { clientes = await leerTodos("clientes"); } catch (e) { clientes = []; }
   // Normalizamos registros antiguos que no tienen los campos es_insumo o unidad.
   productos.forEach((p) => {
     if (p.es_insumo === undefined) p.es_insumo = false;
@@ -859,6 +863,17 @@ function renderVentas() {
   const numero = $("#factura-numero");
   if (numero) numero.value = "F-" + String(siguienteNumeroFactura()).padStart(4, "0");
 
+  // Sugerencias de clientes guardados.
+  const datalist = $("#clientes-datalist");
+  if (datalist) {
+    datalist.innerHTML = "";
+    clientes.slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || "")).forEach((c) => {
+      const op = document.createElement("option");
+      op.value = c.nombre;
+      datalist.appendChild(op);
+    });
+  }
+
   renderItemsFactura();
   renderHistorialFacturas();
 }
@@ -959,6 +974,20 @@ async function registrarFactura() {
   const cliente = $("#factura-cliente").value.trim();
   const numero = siguienteNumeroFactura();
 
+  // Vincula o crea el cliente si escribió un nombre.
+  let clienteId = null;
+  if (cliente) {
+    const existente = buscarClientePorNombre(cliente);
+    if (existente) {
+      clienteId = existente.id;
+    } else {
+      const nuevoCliente = { nombre: cliente, telefono: "", email: "", updated_at: new Date().toISOString() };
+      const nuevoId = await guardar(nuevoCliente, "clientes");
+      nuevoCliente.id = nuevoId;
+      clientes.push(nuevoCliente);
+    }
+  }
+
   for (const item of itemsFactura) {
     const producto = productos.find((p) => p.id === item.producto_id);
     if (!producto) return toast("Producto no encontrado: " + item.nombre, "error");
@@ -972,6 +1001,7 @@ async function registrarFactura() {
     factura_id: "F" + numero,
     fecha: fecha,
     cliente: cliente,
+    cliente_id: clienteId,
     metodo_pago: metodo,
     items: itemsFactura.length,
     creado: Date.now(),
@@ -1219,6 +1249,170 @@ async function eliminarFactura(facturaId) {
   toast("Factura eliminada y stock restaurado.");
   await recargarTodo();
   notificarStockBajo();
+}
+
+// ---------------------------------------------------------------------------
+// CLIENTES
+// ---------------------------------------------------------------------------
+// Calcula los totales de cada cliente a partir de las facturas guardadas.
+function estadisticasClientes() {
+  const stats = {};
+  for (const v of ventas) {
+    const nombre = (v.cliente || "").trim();
+    if (!nombre) continue;
+    if (!stats[nombre]) {
+      stats[nombre] = { facturas: new Set(), total: 0, ultima: "" };
+    }
+    const s = stats[nombre];
+    s.facturas.add(v.factura_id || "V" + v.id);
+    s.total += v.total || 0;
+    if (!s.ultima || v.fecha > s.ultima) s.ultima = v.fecha;
+  }
+  return stats;
+}
+
+// Busca un cliente por nombre (comparación sin tildes ni mayúsculas).
+function buscarClientePorNombre(nombre) {
+  const n = String(nombre || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return clientes.find((c) =>
+    String(c.nombre || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === n
+  ) || null;
+}
+
+function renderClientes() {
+  const caja = $("#lista-clientes");
+  if (!caja) return;
+  const stats = estadisticasClientes();
+  let lista = clientes.slice().sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+  const t = terminoBusquedaClientes.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (t) {
+    lista = lista.filter((c) =>
+      String(c.nombre || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(t)
+      || String(c.telefono || "").includes(t)
+    );
+  }
+
+  if (clientes.length === 0) {
+    caja.textContent = "No hay clientes. Crea el primero con \"+ Nuevo\".";
+    return;
+  }
+  caja.innerHTML = "";
+  if (lista.length === 0) {
+    caja.textContent = "Ningún cliente coincide con la búsqueda.";
+    return;
+  }
+
+  for (const c of lista) {
+    const s = stats[c.nombre] || { facturas: new Set(), total: 0, ultima: "" };
+    const fila = document.createElement("div");
+    fila.className = "fila-lista cliente-fila";
+
+    const info = document.createElement("div");
+    info.className = "fila-info";
+    const nombre = document.createElement("div");
+    nombre.className = "fila-nombre";
+    nombre.textContent = c.nombre;
+    const detalle = document.createElement("div");
+    detalle.className = "fila-detalle";
+    detalle.textContent = [
+      c.telefono ? "📞 " + c.telefono : null,
+      c.email ? "✉️ " + c.email : null,
+    ].filter(Boolean).join(" · ") || "Sin datos de contacto";
+    info.appendChild(nombre);
+    info.appendChild(detalle);
+
+    const compras = document.createElement("div");
+    compras.className = "fila-compras";
+    compras.innerHTML =
+      '<div class="fila-compra-total">' + formatearCOP(s.total) + '</div>' +
+      '<div class="fila-compra-detalle">' + s.facturas.size + ' factura(s)' + (s.ultima ? " · " + formatearFecha(s.ultima) : "") + '</div>';
+
+    const acciones = document.createElement("div");
+    acciones.className = "acciones-fila";
+    const btnEditar = document.createElement("button");
+    btnEditar.className = "btn-mini";
+    btnEditar.textContent = "✏️";
+    btnEditar.title = "Editar";
+    btnEditar.onclick = () => abrirModalCliente(c);
+    const btnEliminar = document.createElement("button");
+    btnEliminar.className = "btn-mini peligro";
+    btnEliminar.textContent = "🗑️";
+    btnEliminar.title = "Eliminar";
+    btnEliminar.onclick = () => eliminarCliente(c.id);
+    acciones.appendChild(btnEditar);
+    acciones.appendChild(btnEliminar);
+
+    fila.appendChild(info);
+    fila.appendChild(compras);
+    fila.appendChild(acciones);
+    caja.appendChild(fila);
+  }
+}
+
+function abrirModalCliente(cliente) {
+  const titulo = $("#cliente-modal-titulo");
+  const id = $("#cliente-id");
+  const nombre = $("#cliente-nombre");
+  const telefono = $("#cliente-telefono");
+  const email = $("#cliente-email");
+  if (cliente) {
+    titulo.textContent = "Editar cliente";
+    id.value = cliente.id;
+    nombre.value = cliente.nombre || "";
+    telefono.value = cliente.telefono || "";
+    email.value = cliente.email || "";
+  } else {
+    titulo.textContent = "Nuevo cliente";
+    id.value = "";
+    nombre.value = "";
+    telefono.value = "";
+    email.value = "";
+  }
+  $("#modal-cliente").classList.remove("oculto");
+  nombre.focus();
+}
+
+function cerrarModalCliente() {
+  $("#modal-cliente").classList.add("oculto");
+}
+
+async function guardarCliente(e) {
+  e.preventDefault();
+  const nombre = $("#cliente-nombre").value.trim();
+  if (!nombre) return toast("El nombre del cliente es obligatorio.", "error");
+  const id = $("#cliente-id").value;
+  const duplicado = clientes.find((c) =>
+    String(c.nombre || "").toLowerCase() === nombre.toLowerCase() && String(c.id) !== String(id)
+  );
+  if (duplicado) return toast("Ya existe un cliente con ese nombre.", "error");
+
+  const cliente = id
+    ? clientes.find((c) => String(c.id) === String(id))
+    : {};
+  cliente.nombre = nombre;
+  cliente.telefono = $("#cliente-telefono").value.trim() || "";
+  cliente.email = $("#cliente-email").value.trim() || "";
+  cliente.updated_at = new Date().toISOString();
+  if (id) {
+    await guardar(cliente, "clientes");
+  } else {
+    const nuevoId = await guardar(cliente, "clientes");
+    cliente.id = nuevoId;
+    clientes.push(cliente);
+  }
+  toast(id ? "Cliente actualizado." : "Cliente agregado.");
+  cerrarModalCliente();
+  renderClientes();
+}
+
+async function eliminarCliente(id) {
+  const cliente = clientes.find((c) => String(c.id) === String(id));
+  if (!cliente) return;
+  if (!window.confirm("¿Eliminar el cliente \"" + cliente.nombre + "\"? Sus facturas se conservan.")) return;
+  await eliminar(id, "clientes");
+  clientes = clientes.filter((c) => String(c.id) !== String(id));
+  toast("Cliente eliminado.");
+  renderClientes();
 }
 
 // ---------------------------------------------------------------------------
@@ -2382,7 +2576,7 @@ function actualizarEstadoNotif() {
 // CONFIGURACIÓN: exportar / importar / limpiar
 // ---------------------------------------------------------------------------
 async function exportarDatos() {
-  const datos = { productos, ventas, exportado: new Date().toISOString() };
+  const datos = { productos, ventas, clientes, exportado: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2408,8 +2602,10 @@ async function procesarImportacion(e) {
     }
     await limpiar("productos");
     await limpiar("ventas");
+    await limpiar("clientes");
     for (const p of datos.productos) await guardar(p, "productos");
     for (const v of datos.ventas) await guardar(v, "ventas");
+    for (const c of (datos.clientes || [])) await guardar(c, "clientes");
     toast("Datos importados correctamente.");
     await recargarTodo();
   } catch (err) {
@@ -2450,7 +2646,12 @@ function exportarExcel() {
   wb.Sheets["Ventas"] = hojaDesdeObjetos("Ventas", ventas, [
     ["id", "id"], ["producto_id", "producto_id"], ["nombre_producto", "nombre_producto"],
     ["cantidad", "cantidad"], ["precio_unitario", "precio_unitario"],
-    ["total", "total"], ["fecha", "fecha"],
+    ["total", "total"], ["fecha", "fecha"], ["cliente", "cliente"],
+  ]);
+
+  wb.SheetNames.push("Clientes");
+  wb.Sheets["Clientes"] = hojaDesdeObjetos("Clientes", clientes, [
+    ["id", "id"], ["nombre", "nombre"], ["telefono", "telefono"], ["email", "email"],
   ]);
 
   wb.SheetNames.push("Categorías");
@@ -2524,6 +2725,7 @@ async function procesarImportacionExcel(e) {
     const filasVentas = leerHoja("Ventas").map(normalizarClaves);
     const filasCategorias = leerHoja("Categorías").map(normalizarClaves);
     const filasRecetas = leerHoja("Recetas").map(normalizarClaves);
+    const filasClientes = leerHoja("Clientes").map(normalizarClaves);
 
     if (filasProductos.length === 0 && filasVentas.length === 0) {
       throw new Error("El archivo no tiene las hojas Productos o Ventas.");
@@ -2562,7 +2764,14 @@ async function procesarImportacionExcel(e) {
       precio_unitario: aNumero(f.preciounitario || f.precio_unitario),
       total: aNumero(f.total),
       fecha: String(f.fecha || new Date().toISOString().slice(0, 10)),
+      cliente: String(f.cliente || "").trim(),
     })).filter((v) => v.producto_id > 0 || v.nombre_producto);
+
+    const clientesNuevas = filasClientes.map((f) => {
+      const nombre = String(f.nombre || "").trim();
+      if (!nombre) return null;
+      return { id: aNumero(f.id) || undefined, nombre, telefono: String(f.telefono || "").trim(), email: String(f.email || "").trim() };
+    }).filter(Boolean);
 
     const recetasNuevas = filasRecetas.map((f) => {
       let productoId = aNumero(f.productoid || f.producto_id);
@@ -2580,13 +2789,14 @@ async function procesarImportacionExcel(e) {
       return { id: aNumero(f.id) || undefined, producto_id: productoId, insumo_id: insumoId, cantidad: aNumero(f.cantidad) || 1 };
     }).filter(Boolean);
 
-    if (!window.confirm("Se reemplazarán TODOS los datos actuales por los del archivo (" + productosNuevos.length + " productos, " + ventasNuevas.length + " ventas, " + categoriasNuevas.length + " categorías, " + recetasNuevas.length + " recetas). ¿Continuar?")) return;
+    if (!window.confirm("Se reemplazarán TODOS los datos actuales por los del archivo (" + productosNuevos.length + " productos, " + ventasNuevas.length + " ventas, " + categoriasNuevas.length + " categorías, " + recetasNuevas.length + " recetas, " + clientesNuevas.length + " clientes). ¿Continuar?")) return;
 
     // Guardamos todo (reemplazando).
     await limpiar("productos");
     await limpiar("ventas");
     await limpiar("categorias");
     await limpiar("recetas");
+    await limpiar("clientes");
 
     if (categoriasNuevas.length === 0) {
       for (const nombre of ["Tortas", "Repostería", "Bebidas", "Otros"]) {
@@ -2599,6 +2809,7 @@ async function procesarImportacionExcel(e) {
     for (const p of productosNuevos) await guardar(p, "productos");
     for (const v of ventasNuevas) await guardar(v, "ventas");
     for (const r of recetasNuevas) await guardar(r, "recetas");
+    for (const c of clientesNuevas) await guardar(c, "clientes");
 
     toast("Excel importado correctamente.");
     await recargarTodo();
@@ -2643,6 +2854,7 @@ function configurarEventos() {
   $("#btn-agregar-item").addEventListener("click", agregarItemFactura);
   $("#factura-item-producto").addEventListener("change", () => renderVentas());
   $("#btn-registrar-factura").addEventListener("click", registrarFactura);
+  $("#btn-ver-clientes").addEventListener("click", () => cambiarVista("clientes"));
   $("#btn-volver-factura").addEventListener("click", cerrarFactura);
   $("#btn-imprimir-factura").addEventListener("click", imprimirFactura);
   $("#factura-pagina-nombre").addEventListener("change", guardarNombreEmpresaDesdeFactura);
@@ -2664,6 +2876,18 @@ function configurarEventos() {
       renderVentas();
     })
   );
+
+  // Clientes
+  $("#btn-nuevo-cliente").addEventListener("click", () => abrirModalCliente(null));
+  $("#form-cliente").addEventListener("submit", guardarCliente);
+  $("#btn-cancelar-cliente").addEventListener("click", cerrarModalCliente);
+  $("#buscador-clientes").addEventListener("input", (e) => {
+    terminoBusquedaClientes = e.target.value.trim();
+    renderClientes();
+  });
+  $("#modal-cliente").addEventListener("click", (e) => {
+    if (e.target === $("#modal-cliente")) cerrarModalCliente();
+  });
 
   // Productos
   $("#btn-nuevo-producto").addEventListener("click", () => abrirModalProducto(null));
