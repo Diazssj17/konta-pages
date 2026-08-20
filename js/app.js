@@ -39,7 +39,6 @@ let periodoAnalisis = 7;    // "7" | "30" | "meses"
 let terminoBusqueda = "";
 let terminoBusquedaClientes = "";
 let productoRecetaActual = null; // producto cuya receta se está viendo/ editando
-let produccionSeleccionada = null; // cálculo actual de necesidades
 let itemsFactura = [];  // productos agregados a la factura en construcción
 
 // ---------------------------------------------------------------------------
@@ -720,7 +719,6 @@ function renderVista(nombre) {
   if (nombre === "ventas") renderVentas();
   if (nombre === "clientes") renderClientes();
   if (nombre === "productos") renderProductos();
-  if (nombre === "producir") renderProducir();
   if (nombre === "analisis") renderAnalisis();
   if (nombre === "admin") renderAdmin();
 }
@@ -2165,201 +2163,6 @@ async function eliminarReceta(id) {
 }
 
 // ---------------------------------------------------------------------------
-// PRODUCIR
-// ---------------------------------------------------------------------------
-function renderProducir() {
-  // Selector de productos (solo productos finales; los insumos no se producen).
-  const select = $("#producir-producto");
-  const anterior = select.value;
-  select.innerHTML = "";
-  const producibles = productos
-    .filter((p) => !p.es_insumo)
-    .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  producibles.forEach((p) => {
-    const op = document.createElement("option");
-    op.value = p.id;
-    op.textContent = p.emoji + " " + p.nombre;
-    select.appendChild(op);
-  });
-  if (anterior) select.value = anterior;
-
-  calcularNecesidades();
-  renderListaCompras();
-}
-
-function calcularNecesidades() {
-  const caja = $("#necesidades-produccion");
-  const btnRegistrar = $("#btn-registrar-produccion");
-
-  const productoId = Number($("#producir-producto").value);
-  const cantidad = 1;
-  const producto = productos.find((p) => p.id === productoId);
-
-  if (!producto) {
-    caja.innerHTML = "Elige un producto para ver sus insumos.";
-    btnRegistrar.classList.add("oculto");
-    produccionSeleccionada = null;
-    return;
-  }
-
-  const ingredientes = recetas.filter((r) => r.producto_id === productoId);
-
-  if (ingredientes.length === 0) {
-    caja.innerHTML = "El producto <b>" + producto.nombre + "</b> no tiene receta. Defínela con el botón 📋 en Productos.";
-    btnRegistrar.classList.add("oculto");
-    produccionSeleccionada = null;
-    return;
-  }
-
-  caja.innerHTML = "";
-  const tabla = document.createElement("div");
-  const encabezado = document.createElement("div");
-  encabezado.className = "fila-detalle";
-  encabezado.style.marginBottom = "6px";
-  encabezado.style.fontWeight = "bold";
-  encabezado.style.fontSize = "16px";
-  encabezado.textContent = producto.nombre + " — ingredientes y cantidades";
-  tabla.appendChild(encabezado);
-
-  const requerimientos = [];
-
-  ingredientes.forEach((r) => {
-    const insumo = productos.find((p) => p.id === r.insumo_id);
-    if (!insumo) return;
-    const requerido = r.cantidad * cantidad;
-    const faltante = Math.max(0, requerido - insumo.stock);
-    requerimientos.push({ receta: r, insumo, requerido, faltante });
-
-    const fila = document.createElement("div");
-    fila.className = "fila-lista fila-necesidad";
-
-    const emoji = document.createElement("span");
-    emoji.className = "fila-emoji";
-    emoji.textContent = insumo.emoji || "🧺";
-
-    const info = document.createElement("div");
-    info.className = "fila-info";
-    const nombre = document.createElement("div");
-    nombre.className = "fila-nombre";
-    nombre.textContent = insumo.nombre;
-    const detalle = document.createElement("div");
-    detalle.className = "fila-detalle";
-    detalle.textContent = r.cantidad + " " + etiquetaUnidad(insumo.unidad);
-    info.appendChild(nombre);
-    info.appendChild(detalle);
-
-    const derecha = document.createElement("div");
-    derecha.className = "fila-derecha";
-
-    const estado = document.createElement("span");
-    estado.className = "insignia-stock " + (faltante > 0 ? "baja" : "ok");
-    estado.textContent = faltante > 0 ? "Faltan " + faltante + " " + etiquetaUnidad(insumo.unidad) : "OK";
-    derecha.appendChild(estado);
-
-    fila.appendChild(emoji);
-    fila.appendChild(info);
-    fila.appendChild(derecha);
-    tabla.appendChild(fila);
-  });
-
-  caja.appendChild(tabla);
-
-  produccionSeleccionada = { producto, cantidad, requerimientos };
-
-  btnRegistrar.classList.remove("oculto");
-  const todoSuficiente = requerimientos.every((x) => x.faltante === 0);
-  btnRegistrar.disabled = !todoSuficiente;
-  btnRegistrar.textContent = todoSuficiente
-    ? "Registrar producción de " + producto.nombre
-    : "Faltan insumos para producir";
-}
-
-async function registrarProduccion() {
-  const productoId = Number($("#producir-producto").value);
-  const cantidad = 1;
-  const producto = productos.find((p) => p.id === productoId);
-  if (!producto) return;
-
-  const requerimientos = [];
-  let todoSuficiente = true;
-  recetas.filter((r) => r.producto_id === productoId).forEach((r) => {
-    const insumo = productos.find((p) => p.id === r.insumo_id);
-    if (!insumo) return;
-    const porUnidad = Math.max(0, Number(r.cantidad) || 0);
-    if (porUnidad <= 0) return;
-    const requerido = porUnidad * cantidad;
-    const faltante = Math.max(0, requerido - insumo.stock);
-    if (faltante > 0) todoSuficiente = false;
-    requerimientos.push({ insumo, requerido, faltante });
-  });
-
-  if (requerimientos.length === 0) return toast("Agrega al menos un insumo con cantidad mayor a 0.", "error");
-  if (!todoSuficiente) return toast("No hay suficientes insumos para producir.", "error");
-
-  if (!window.confirm("Producir " + cantidad + " × " + producto.nombre + "?\nSe descontarán los insumos y aumentará el stock del producto.")) return;
-
-  for (const { insumo, requerido } of requerimientos) {
-    insumo.stock = Math.max(0, insumo.stock - requerido);
-    await guardar(insumo, "productos");
-  }
-  producto.stock = (producto.stock || 0) + cantidad;
-  await guardar(producto, "productos");
-
-  toast("Producción registrada: " + cantidad + " × " + producto.nombre);
-  await recargarTodo();
-  calcularNecesidades();
-  notificarStockBajo();
-}
-
-// Lista de compras: insumos con stock por debajo de su mínimo.
-function renderListaCompras() {
-  const caja = $("#lista-compras");
-  caja.innerHTML = "";
-
-  const insumos = productos.filter((p) => p.es_insumo);
-  const compras = insumos
-    .map((i) => ({ insumo: i, faltante: Math.max(0, (i.stock_minimo || 0) - i.stock) }))
-    .filter((c) => c.faltante > 0)
-    .sort((a, b) => b.faltante - a.faltante);
-
-  if (compras.length === 0) {
-    caja.innerHTML = '<span style="color:#16a34a">✅ Todos los insumos están por encima de su stock mínimo.</span>';
-    return;
-  }
-
-  compras.forEach(({ insumo, faltante }) => {
-    const fila = document.createElement("div");
-    fila.className = "fila-lista";
-
-    const emoji = document.createElement("span");
-    emoji.className = "fila-emoji";
-    emoji.textContent = insumo.emoji || "🧺";
-
-    const info = document.createElement("div");
-    info.className = "fila-info";
-    const nombre = document.createElement("div");
-    nombre.className = "fila-nombre";
-    nombre.textContent = insumo.nombre;
-    const detalle = document.createElement("div");
-    detalle.className = "fila-detalle";
-    detalle.textContent = "Tienes " + insumo.stock + " " + etiquetaUnidad(insumo.unidad) + " de " + (insumo.stock_minimo || 0) + " " + etiquetaUnidad(insumo.unidad) + " mínimo";
-    info.appendChild(nombre);
-    info.appendChild(detalle);
-
-    const derecha = document.createElement("div");
-    derecha.className = "fila-derecha";
-    const estado = document.createElement("span");
-    estado.className = "insignia-stock baja";
-    estado.textContent = "Comprar " + faltante + " " + etiquetaUnidad(insumo.unidad);
-    derecha.appendChild(estado);
-
-    fila.appendChild(emoji);
-    fila.appendChild(info);
-    fila.appendChild(derecha);
-    caja.appendChild(fila);
-  });
-}
-
 // ---------------------------------------------------------------------------
 // ANÁLISIS
 // ---------------------------------------------------------------------------
@@ -2813,7 +2616,6 @@ async function procesarImportacionExcel(e) {
 
     toast("Excel importado correctamente.");
     await recargarTodo();
-    renderProducir();
   } catch (err) {
     console.error(err);
     toast("No se pudo importar el archivo: " + (err.message || "formato no válido"), "error");
@@ -2927,10 +2729,6 @@ function configurarEventos() {
   $("#modal-receta").addEventListener("click", (e) => {
     if (e.target === $("#modal-receta")) cerrarModalReceta();
   });
-
-  // Producir
-  $("#producir-producto").addEventListener("change", calcularNecesidades);
-  $("#btn-registrar-produccion").addEventListener("click", registrarProduccion);
 
   // Análisis
   $$("#periodo-tabs .filtro-btn").forEach((b) =>

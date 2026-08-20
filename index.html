@@ -277,25 +277,6 @@
         </div>
       </section>
 
-      <!-- ============ VISTA: PRODUCIR ============ -->
-      <section id="vista-producir" class="vista">
-        <div class="panel">
-          <h2>🏭 ¿Qué necesito para hacer?</h2>
-          <form id="form-producir" class="formulario">
-            <label>Producto a producir
-              <select id="producir-producto" required></select>
-            </label>
-          </form>
-          <div id="necesidades-produccion" class="lista-vacia">Elige un producto y una cantidad para ver los insumos que necesitas.</div>
-          <button id="btn-registrar-produccion" class="btn btn-primario oculto">Registrar producción</button>
-        </div>
-
-        <div class="panel">
-          <h2>🛒 Lista de compras (insumos bajos)</h2>
-          <div id="lista-compras" class="lista-vacia">Cargando…</div>
-        </div>
-      </section>
-
       <!-- ============ VISTA: CONFIGURACIÓN ============ -->
       <section id="vista-config" class="vista">
         <div class="panel">
@@ -424,9 +405,6 @@
       </button>
       <button class="nav-btn" data-vista="productos">
         <span class="nav-icono">📦</span><span>Productos</span>
-      </button>
-      <button class="nav-btn" data-vista="producir">
-        <span class="nav-icono">🏭</span><span>Producir</span>
       </button>
       <button class="nav-btn" data-vista="analisis">
         <span class="nav-icono">📈</span><span>Análisis</span>
@@ -609,7 +587,6 @@
       <ul class="guia-lista">
         <li><strong>📦 Productos:</strong> agrega tus productos con precio, costo y stock. Marca <em>"Es insumo"</em> si es un ingrediente para recetas.</li>
         <li><strong>🧾 Ventas:</strong> crea una factura con uno o varios productos, elige si pagaron en <em>efectivo</em> o <em>transferencia</em> y podrás imprimir el ticket.</li>
-        <li><strong>🏭 Producir:</strong> elige un producto con receta para ver los insumos necesarios y registrar la producción.</li>
         <li><strong>📈 Análisis:</strong> revisa tus ingresos, categorías, ranking de productos y utilidad.</li>
         <li><strong>⚙️ Config:</strong> exporta o importa Excel, activa alertas de stock bajo y administra tu cuenta.</li>
       </ul>

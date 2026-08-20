@@ -365,13 +365,6 @@ body {
   cursor: not-allowed;
 }
 
-.fila-necesidad .fila-derecha {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
 /* ============ Listas ============ */
 .lista-vacia {
   color: var(--texto-suave);
