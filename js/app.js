@@ -1696,6 +1696,90 @@ function renderCatalogo() {
   });
 }
 
+// Genera y descarga el catálogo en PDF (usa jsPDF desde CDN).
+async function descargarCatalogoPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margen = 15;
+  const colW = (pageW - 2 * margen - 8) / 2;
+  const filaH = 55;
+  let x = margen;
+  let y = margen + 10;
+
+  // Título del catálogo
+  doc.setFontSize(20);
+  doc.setTextColor(40, 40, 40);
+  doc.text(empresaActual?.nombre || "Mi Negocio", margen, margen + 7);
+  doc.setFontSize(11);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Catálogo de productos", margen, margen + 14);
+
+  const lista = productos.filter((p) => !p.es_insumo).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  if (lista.length === 0) {
+    doc.text("No hay productos para mostrar.", margen, y + 10);
+    doc.save("catalogo.pdf");
+    return;
+  }
+
+  for (let i = 0; i < lista.length; i++) {
+    const p = lista[i];
+    if (x > margen + colW + 8) {
+      x = margen;
+      y += filaH + 6;
+      if (y > pageH - 20) {
+        doc.addPage();
+        y = margen + 10;
+      }
+    }
+
+    // Recuadro del producto
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.rect(x, y, colW, filaH);
+
+    // Imagen o emoji
+    const imgUrl = urlImagenDe(p);
+    if (imgUrl) {
+      try {
+        const blob = await fetch(imgUrl).then((r) => r.blob());
+        const base64 = await new Promise((res) => {
+          const reader = new FileReader();
+          reader.onload = () => res(reader.result.split(",")[1]);
+          reader.readAsDataURL(blob);
+        });
+        doc.addImage(base64, "JPEG", x + 3, y + 3, colW - 6, 30, undefined, "FAST");
+      } catch {
+        // fallback emoji
+        doc.setFontSize(24);
+        doc.text(p.emoji || "📦", x + colW / 2, y + 20, { align: "center" });
+      }
+    } else {
+      doc.setFontSize(24);
+      doc.text(p.emoji || "📦", x + colW / 2, y + 20, { align: "center" });
+    }
+
+    // Nombre
+    doc.setFontSize(9);
+    doc.setTextColor(40, 40, 40);
+    const lineas = doc.splitTextToSize(p.nombre, colW - 6);
+    doc.text(lineas, x + 3, y + 38, { maxWidth: colW - 6 });
+
+    // Precio
+    doc.setFontSize(11);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(25, 100, 25);
+    doc.text(formatearCOP(p.precio), x + colW / 2, y + 48, { align: "center" });
+    doc.setFont(undefined, "normal");
+
+    x += colW + 8;
+  }
+
+  doc.save("catalogo.pdf");
+  toast("Catálogo PDF descargado.");
+}
+
 // Emojis disponibles para marcar un producto (incluye comida, bebida y genéricos).
 const EMOJIS_DISPONIBLES = [
   "🍰", "🎂", "🍫", "🍪", "🧁", "🍩", "🍮", "🍬", "🍭", "🍦",
@@ -3044,6 +3128,7 @@ function configurarEventos() {
     terminoBusquedaCatalogo = e.target.value.trim();
     renderCatalogo();
   });
+  $("#btn-descargar-catalogo").addEventListener("click", descargarCatalogoPDF);
 
   // Imagen del producto
   $("#btn-elegir-foto").addEventListener("click", () => $("#producto-imagen-input").click());
