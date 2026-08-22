@@ -1728,77 +1728,164 @@ function renderCatalogo() {
   });
 }
 
-// Genera el catálogo en PDF y devuelve el Blob (jsPDF local).
+// Genera el catálogo en PDF bien organizado por categorías (jsPDF local).
 async function generarCatalogoPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margen = 15;
+  const margen = 12;
   const colW = (pageW - 2 * margen - 8) / 2;
-  const filaH = 55;
+  const filaH = 48;
+  const fechaHoy = new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" });
+
+  function dibujarEncabezado() {
+    doc.setFillColor(22, 101, 52);
+    doc.rect(0, 0, pageW, 22, "F");
+    doc.setFontSize(16);
+    doc.setTextColor(255, 255, 255);
+    doc.setFont(undefined, "bold");
+    doc.text(empresaActual?.nombre || "Mi Negocio", margen, 10);
+    doc.setFontSize(9);
+    doc.setFont(undefined, "normal");
+    doc.text("Catálogo de productos  ·  " + fechaHoy, margen, 16);
+    doc.setFontSize(8);
+    doc.setTextColor(220, 252, 231);
+    doc.text("Precios en COP  ·  Imágenes referenciales", pageW - margen, 16, { align: "right" });
+  }
+
+  function dibujarPie(num, total) {
+    for (let i = 1; i <= total; i++) {
+      doc.setPage(i);
+      doc.setFontSize(7);
+      doc.setTextColor(140, 140, 140);
+      doc.text("Página " + i + " / " + total, pageW / 2, pageH - 6, { align: "center" });
+      if (empresaActual?.nombre) {
+        doc.text(empresaActual.nombre, margen, pageH - 6);
+      }
+    }
+  }
+
+  let y = margen + 28;
   let x = margen;
-  let y = margen + 10;
+  dibujarEncabezado();
 
-  doc.setFontSize(20);
-  doc.setTextColor(40, 40, 40);
-  doc.text(empresaActual?.nombre || "Mi Negocio", margen, margen + 7);
-  doc.setFontSize(11);
-  doc.setTextColor(100, 100, 100);
-  doc.text("Catálogo de productos", margen, margen + 14);
+  const vendibles = productos.filter((p) => !p.es_insumo);
+  if (vendibles.length === 0) {
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("No hay productos para mostrar en el catálogo.", margen, y + 10);
+    const total = doc.internal.getNumberOfPages();
+    dibujarPie(1, total);
+    return doc.output("blob");
+  }
 
-  const lista = productos.filter((p) => !p.es_insumo).sort((a, b) => a.nombre.localeCompare(b.nombre));
-  if (lista.length === 0) {
-    doc.text("No hay productos para mostrar.", margen, y + 10);
-  } else {
+  // Categorías en el orden guardado; si no hay, agrupar por la propiedad categoria.
+  const nombresCat = categorias.length
+    ? categorias.map((c) => c.nombre)
+    : [...new Set(vendibles.map((p) => p.categoria || "Otros"))].sort();
+  // Asegurar que categorías con productos aparezcan aunque no estén en la lista
+  for (const p of vendibles) {
+    const cat = p.categoria || "Otros";
+    if (!nombresCat.includes(cat)) nombresCat.push(cat);
+  }
+
+  for (const nombreCat of nombresCat) {
+    const lista = vendibles
+      .filter((p) => (p.categoria || "Otros") === nombreCat)
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+    if (lista.length === 0) continue;
+
+    // ¿Cabe el encabezado de categoría?
+    if (y + 12 > pageH - 14) {
+      doc.addPage();
+      dibujarEncabezado();
+      y = margen + 28;
+      x = margen;
+    }
+    // Franja de categoría
+    doc.setFillColor(240, 253, 244);
+    doc.setDrawColor(187, 247, 208);
+    doc.setLineWidth(0.2);
+    doc.rect(margen, y, pageW - 2 * margen, 9, "FD");
+    doc.setFontSize(10);
+    doc.setFont(undefined, "bold");
+    doc.setTextColor(22, 101, 52);
+    doc.text(nombreCat.toUpperCase() + "  ·  " + lista.length + " producto(s)", margen + 3, y + 6);
+    doc.setFont(undefined, "normal");
+    y += 13;
+    x = margen;
+
     for (let i = 0; i < lista.length; i++) {
       const p = lista[i];
-      if (x > margen + colW + 8) {
+      // Salto de fila / página
+      if (x > margen + colW + 4) {
         x = margen;
-        y += filaH + 6;
-        if (y > pageH - 20) {
-          doc.addPage();
-          y = margen + 10;
-        }
+        y += filaH + 5;
+      }
+      if (y + filaH > pageH - 10) {
+        doc.addPage();
+        dibujarEncabezado();
+        y = margen + 28;
+        x = margen;
       }
 
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.3);
-      doc.rect(x, y, colW, filaH);
+      // Tarjeta
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.25);
+      doc.setFillColor(255, 255, 255);
+      doc.rect(x, y, colW, filaH, "FD");
 
-      const imgUrl = urlImagenDe(p);
-      if (imgUrl) {
+      if (p.imagen instanceof Blob) {
         try {
-          const blob = await fetch(imgUrl).then((r) => r.blob());
-          const base64 = await new Promise((res) => {
-            const reader = new FileReader();
-            reader.onload = () => res(reader.result.split(",")[1]);
-            reader.readAsDataURL(blob);
-          });
-          doc.addImage(base64, "JPEG", x + 3, y + 3, colW - 6, 30, undefined, "FAST");
+          const dataUrl = await blobABase64(p.imagen);
+          const base64 = dataUrl.split(",")[1];
+          doc.addImage(base64, "JPEG", x + 2, y + 2, colW - 4, 28, undefined, "FAST");
         } catch {
-          doc.setFontSize(24);
-          doc.text(p.emoji || "📦", x + colW / 2, y + 20, { align: "center" });
+          doc.setFontSize(20);
+          doc.setTextColor(80, 80, 80);
+          doc.text(p.emoji || "📦", x + colW / 2, y + 18, { align: "center" });
         }
       } else {
-        doc.setFontSize(24);
-        doc.text(p.emoji || "📦", x + colW / 2, y + 20, { align: "center" });
+        const imgUrl = urlImagenDe(p);
+        if (imgUrl) {
+          try {
+            const dataUrl = await blobABase64(await fetch(imgUrl).then((r) => r.blob()));
+            doc.addImage(dataUrl.split(",")[1], "JPEG", x + 2, y + 2, colW - 4, 28, undefined, "FAST");
+          } catch {
+            doc.setFontSize(20);
+            doc.setTextColor(80, 80, 80);
+            doc.text(p.emoji || "📦", x + colW / 2, y + 18, { align: "center" });
+          }
+        } else {
+          doc.setFontSize(20);
+          doc.setTextColor(80, 80, 80);
+          doc.text(p.emoji || "📦", x + colW / 2, y + 18, { align: "center" });
+        }
       }
 
-      doc.setFontSize(9);
-      doc.setTextColor(40, 40, 40);
-      const lineas = doc.splitTextToSize(p.nombre, colW - 6);
-      doc.text(lineas, x + 3, y + 38, { maxWidth: colW - 6 });
-
-      doc.setFontSize(11);
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 30, 30);
       doc.setFont(undefined, "bold");
-      doc.setTextColor(25, 100, 25);
-      doc.text(formatearCOP(p.precio), x + colW / 2, y + 48, { align: "center" });
+      const lineas = doc.splitTextToSize(p.nombre, colW - 6);
+      const nombreY = y + 34;
+      doc.text(lineas.slice(0, 2), x + 3, nombreY, { maxWidth: colW - 6 });
+      doc.setFont(undefined, "normal");
+
+      doc.setFontSize(10);
+      doc.setFont(undefined, "bold");
+      doc.setTextColor(22, 101, 52);
+      doc.text(formatearCOP(p.precio), x + colW / 2, y + filaH - 4, { align: "center" });
       doc.setFont(undefined, "normal");
 
       x += colW + 8;
     }
+    y += filaH + 8;
+    x = margen;
   }
+
+  const total = doc.internal.getNumberOfPages();
+  dibujarPie(1, total);
   return doc.output("blob");
 }
 
