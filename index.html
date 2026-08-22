@@ -181,6 +181,17 @@
                 <button type="button" id="btn-ver-clientes" class="btn btn-secundario btn-pequeno" title="Gestionar clientes">👥</button>
               </div>
             </label>
+            <label>Tipo de venta</label>
+            <div class="metodo-pago" id="tipo-venta">
+              <label class="metodo-opcion">
+                <input type="radio" name="tipo_venta" value="contado" checked />
+                <span class="metodo-emoji">✅</span> Contado (paga completo)
+              </label>
+              <label class="metodo-opcion">
+                <input type="radio" name="tipo_venta" value="credito" />
+                <span class="metodo-emoji">📝</span> Crédito (deuda)
+              </label>
+            </div>
             <label>Método de pago</label>
             <div class="metodo-pago" id="metodo-pago">
               <label class="metodo-opcion">
@@ -630,7 +641,10 @@
         </div>
         <div class="factura-pagina-meta" id="factura-pagina-meta">Factura</div>
         <div class="factura-pagina-cliente" id="factura-pagina-cliente">Cliente: Consumidor final</div>
-        <div class="factura-badge" id="factura-pagina-metodo">💵 Efectivo</div>
+        <div class="factura-badges">
+          <div class="factura-badge" id="factura-pagina-metodo">💵 Efectivo</div>
+          <div class="factura-badge" id="factura-pagina-tipo">✅ Contado</div>
+        </div>
       </div>
       <div id="factura-pagina-items"></div>
       <div class="factura-pagina-total">

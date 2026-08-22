@@ -1461,6 +1461,13 @@ body {
   margin-top: 4px;
 }
 
+.factura-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
 .factura-badge.efectivo {
   background: #dcfce7;
   color: #166534;
@@ -1469,6 +1476,16 @@ body {
 .factura-badge.transferencia {
   background: #dbeafe;
   color: #1e40af;
+}
+
+.factura-badge.contado {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.factura-badge.credito {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 /* Pantalla completa de la factura */

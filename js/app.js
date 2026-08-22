@@ -1013,6 +1013,7 @@ async function registrarFactura() {
   const fecha = $("#factura-fecha").value;
   if (!fecha) return toast("La fecha es obligatoria.", "error");
   const metodo = (document.querySelector('input[name="metodo"]:checked') || {}).value || "efectivo";
+  const tipoVenta = (document.querySelector('input[name="tipo_venta"]:checked') || {}).value || "contado";
   const cliente = $("#factura-cliente").value.trim();
   const numero = siguienteNumeroFactura();
 
@@ -1045,6 +1046,7 @@ async function registrarFactura() {
     cliente: cliente,
     cliente_id: clienteId,
     metodo_pago: metodo,
+    tipo_venta: tipoVenta,
     items: itemsFactura.length,
     creado: Date.now(),
   };
@@ -1069,6 +1071,7 @@ async function registrarFactura() {
     fecha: fecha,
     cliente: cliente,
     metodo: metodo,
+    tipo_venta: tipoVenta,
     items: itemsFactura.map((i) => ({
       nombre: i.nombre,
       cantidad: i.cantidad,
@@ -1207,12 +1210,18 @@ function verFactura(facturaId) {
 function mostrarFactura(data) {
   const esTransferencia = data.metodo === "transferencia";
   const etiquetaMetodo = esTransferencia ? "🏦 Transferencia" : "💵 Efectivo";
+  const tipoVenta = data.tipo_venta === "credito" ? "📝 Crédito (deuda)" : "✅ Contado (paga completo)";
   $("#factura-pagina-nombre").value = empresaActual ? empresaActual.nombre : "Konta";
   $("#factura-pagina-meta").textContent = "Factura " + (data.numero || "") + " · " + formatearFecha(data.fecha);
   $("#factura-pagina-cliente").textContent = data.cliente ? "Cliente: " + data.cliente : "Cliente: Consumidor final";
   const badge = $("#factura-pagina-metodo");
   badge.textContent = etiquetaMetodo;
   badge.className = "factura-badge " + (esTransferencia ? "transferencia" : "efectivo");
+  const badgeTipo = $("#factura-pagina-tipo");
+  if (badgeTipo) {
+    badgeTipo.textContent = tipoVenta;
+    badgeTipo.className = "factura-badge " + (data.tipo_venta === "credito" ? "credito" : "contado");
+  }
   $("#factura-pagina-items").innerHTML = data.items.map((it) =>
     '<div class="factura-item">' +
       '<div class="factura-item-info">' +
