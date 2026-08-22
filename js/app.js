@@ -1397,12 +1397,35 @@ function renderClientes() {
     btnEditar.textContent = "✏️";
     btnEditar.title = "Editar";
     btnEditar.onclick = () => abrirModalCliente(c);
+    if (deuda > 0) {
+      const btnPagar = document.createElement("button");
+      btnPagar.className = "btn-mini";
+      btnPagar.textContent = "💳";
+      btnPagar.title = "Registrar pago de deuda (" + formatearCOP(deuda) + ")";
+      btnPagar.onclick = () => {
+        const clienteId = c.id;
+        const cliente = clientes.find((x) => x.id === clienteId);
+        if (!cliente) return;
+        const deudaActual = calcularDeudaCliente(cliente.nombre);
+        $("#abono-titulo").textContent = "Abono a " + cliente.nombre;
+        $("#abono-deuda-info").textContent = "Deuda pendiente: " + formatearCOP(deudaActual);
+        $("#abono-cliente-id").value = clienteId;
+        $("#abono-monto").max = deudaActual;
+        $("#abono-monto").placeholder = "Máx: " + formatearCOP(deudaActual);
+        $("#abono-fecha").value = new Date().toISOString().slice(0, 10);
+        $("#abono-nota").value = "";
+        $("#modal-abono").classList.remove("oculto");
+        $("#abono-monto").focus();
+      };
+      acciones.appendChild(btnPagar);
+    }
     const btnEliminar = document.createElement("button");
     btnEliminar.className = "btn-mini peligro";
     btnEliminar.textContent = "🗑️";
     btnEliminar.title = "Eliminar";
     btnEliminar.onclick = () => eliminarCliente(c.id);
     acciones.appendChild(btnEditar);
+    if (deuda > 0) acciones.appendChild(btnPagar);
     acciones.appendChild(btnEliminar);
 
     fila.appendChild(info);
