@@ -3141,7 +3141,6 @@ function configurarEventos() {
     renderCatalogo();
   });
   $("#btn-descargar-catalogo").addEventListener("click", descargarCatalogoPDF);
-  $("#btn-previsualizar-catalogo").addEventListener("click", previsualizarCatalogoPDF);
 
   // Imagen del producto
   $("#btn-elegir-foto").addEventListener("click", () => $("#producto-imagen-input").click());
