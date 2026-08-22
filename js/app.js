@@ -1770,11 +1770,16 @@ async function generarCatalogoPDF() {
   let x = margen;
   dibujarEncabezado();
 
-  const vendibles = productos.filter((p) => !p.es_insumo);
+  let vendibles = productos.filter((p) => !p.es_insumo);
+  // Si hay búsqueda activa en el catálogo, el PDF refleja exactamente lo visible.
+  const filtro = (typeof terminoBusquedaCatalogo !== "undefined" ? terminoBusquedaCatalogo : "").trim().toLowerCase();
+  if (filtro) {
+    vendibles = vendibles.filter((p) => p.nombre.toLowerCase().includes(filtro));
+  }
   if (vendibles.length === 0) {
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
-    doc.text("No hay productos para mostrar en el catálogo.", margen, y + 10);
+    doc.text(filtro ? "Sin resultados para \"" + filtro + "\"." : "No hay productos para mostrar en el catálogo.", margen, y + 10);
     const total = doc.internal.getNumberOfPages();
     dibujarPie(1, total);
     return doc.output("blob");
