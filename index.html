@@ -477,15 +477,19 @@
           </select>
         </label>
         <label>Emoji
-          <select id="producto-emoji"></select>
+          <div class="campo-emoji">
+            <input type="hidden" id="producto-emoji" value="🍰" />
+            <button type="button" id="btn-emoji-selector" class="btn-emoji-selector">🍰</button>
+          </div>
         </label>
         <div class="campo-imagen">
           <span class="campo-imagen-label">Imagen del catálogo</span>
           <img id="producto-imagen-preview" class="imagen-preview oculto" alt="Vista previa" />
           <div class="acciones-imagen">
-            <label class="btn btn-secundario btn-pequeno">📷 Elegir foto
-              <input type="file" id="producto-imagen-input" accept="image/*" class="oculto" />
-            </label>
+            <div class="btn-archivo-wrapper">
+              <button type="button" class="btn btn-secundario btn-pequeno" id="btn-elegir-foto">📷 Elegir foto</button>
+              <input type="file" id="producto-imagen-input" accept="image/*" class="input-archivo" />
+            </div>
             <button type="button" id="btn-quitar-imagen" class="btn btn-secundario btn-pequeno oculto">✕ Quitar</button>
           </div>
         </div>
@@ -499,6 +503,18 @@
           <button type="submit" class="btn btn-primario">Guardar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: EMOJI SELECTOR ============ -->
+  <div id="modal-emoji" class="modal oculto">
+    <div class="modal-contenido modal-emoji">
+      <h2>Elegir emoji</h2>
+      <input type="search" id="buscador-emoji" class="buscador" placeholder="Buscar emoji (ej: torta, pan, cafe)…" />
+      <div id="grilla-emoji" class="grilla-emoji"></div>
+      <div class="modal-acciones">
+        <button type="button" id="btn-cerrar-emoji" class="btn btn-secundario">Cancelar</button>
+      </div>
     </div>
   </div>
 
@@ -517,9 +533,35 @@
         <label>Email (opcional)
           <input type="email" id="cliente-email" autocomplete="off" />
         </label>
+        <div class="cliente-deuda-resumen oculto" id="cliente-deuda-resumen"></div>
         <div class="modal-acciones">
           <button type="button" id="btn-cancelar-cliente" class="btn btn-secundario">Cancelar</button>
+          <button type="button" id="btn-abono-cliente" class="btn btn-primario oculto">💳 Registrar abono</button>
           <button type="submit" class="btn btn-primario">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ MODAL: ABONO (pago parcial) ============ -->
+  <div id="modal-abono" class="modal oculto">
+    <div class="modal-contenido">
+      <h2 id="abono-titulo">Registrar abono</h2>
+      <p id="abono-deuda-info" class="nota"></p>
+      <form id="form-abono" class="formulario">
+        <input type="hidden" id="abono-cliente-id" />
+        <label>Monto del abono
+          <input type="number" id="abono-monto" min="100" step="100" required />
+        </label>
+        <label>Fecha
+          <input type="date" id="abono-fecha" required />
+        </label>
+        <label>Nota (opcional)
+          <input type="text" id="abono-nota" placeholder="Ej: Pago parcial, transferencia, etc." />
+        </label>
+        <div class="modal-acciones">
+          <button type="button" id="btn-cancelar-abono" class="btn btn-secundario">Cancelar</button>
+          <button type="submit" class="btn btn-primario">Guardar abono</button>
         </div>
       </form>
     </div>

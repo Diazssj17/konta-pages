@@ -34,6 +34,7 @@ let ventas = [];
 let categorias = [];
 let recetas = [];
 let clientes = [];
+let abonos = [];
 let filtroVentas = 7;       // días de historial a mostrar en "Ventas"
 let periodoAnalisis = 7;    // "7" | "30" | "meses"
 let terminoBusqueda = "";
@@ -737,6 +738,7 @@ async function cargarDatos() {
   categorias = await leerTodos("categorias");
   recetas = await leerTodos("recetas");
   try { clientes = await leerTodos("clientes"); } catch (e) { clientes = []; }
+  try { abonos = await leerTodos("abonos"); } catch (e) { abonos = []; }
   // Normalizamos registros antiguos que no tienen los campos es_insumo o unidad.
   productos.forEach((p) => {
     if (p.es_insumo === undefined) p.es_insumo = false;
@@ -908,11 +910,41 @@ function renderItemsFactura() {
       const nombre = document.createElement("div");
       nombre.className = "factura-item-nombre";
       nombre.textContent = item.nombre;
-      const detalle = document.createElement("div");
-      detalle.className = "factura-item-detalle";
-      detalle.textContent = item.cantidad + " × " + formatearCOP(item.precio_unitario);
+
+      const controles = document.createElement("div");
+      controles.className = "factura-item-controles";
+
+      const inputCantidad = document.createElement("input");
+      inputCantidad.type = "number";
+      inputCantidad.min = 1;
+      inputCantidad.value = item.cantidad;
+      inputCantidad.className = "factura-item-input";
+      inputCantidad.title = "Cantidad";
+      inputCantidad.onchange = () => {
+        const val = Math.max(1, Number(inputCantidad.value) || 1);
+        item.cantidad = val;
+        actualizarItemFactura(idx);
+      };
+
+      const inputPrecio = document.createElement("input");
+      inputPrecio.type = "number";
+      inputPrecio.min = 0;
+      inputPrecio.step = 100;
+      inputPrecio.value = item.precio_unitario;
+      inputPrecio.className = "factura-item-input";
+      inputPrecio.title = "Precio unitario";
+      inputPrecio.onchange = () => {
+        const val = Math.max(0, Number(inputPrecio.value) || 0);
+        item.precio_unitario = val;
+        actualizarItemFactura(idx);
+      };
+
+      controles.appendChild(inputCantidad);
+      controles.appendChild(document.createTextNode(" × "));
+      controles.appendChild(inputPrecio);
+
       info.appendChild(nombre);
-      info.appendChild(detalle);
+      info.appendChild(controles);
 
       const subtotal = document.createElement("span");
       subtotal.className = "factura-item-subtotal";
@@ -932,6 +964,13 @@ function renderItemsFactura() {
   }
   const total = $("#factura-total");
   if (total) total.textContent = formatearCOP(totalFactura());
+}
+
+function actualizarItemFactura(idx) {
+  const item = itemsFactura[idx];
+  if (!item) return;
+  item.total = item.cantidad * item.precio_unitario;
+  renderItemsFactura();
 }
 
 function totalFactura() {
@@ -1274,6 +1313,16 @@ function estadisticasClientes() {
   return stats;
 }
 
+// Calcula la deuda pendiente de un cliente (total facturas - total abonos).
+function calcularDeudaCliente(nombreCliente) {
+  const stats = estadisticasClientes();
+  const s = stats[nombreCliente] || { total: 0 };
+  const totalAbonos = abonos
+    .filter((a) => a.cliente_nombre === nombreCliente)
+    .reduce((acc, a) => acc + (Number(a.monto) || 0), 0);
+  return Math.max(0, s.total - totalAbonos);
+}
+
 // Busca un cliente por nombre (comparación sin tildes ni mayúsculas).
 function buscarClientePorNombre(nombre) {
   const n = String(nombre || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -1307,6 +1356,7 @@ function renderClientes() {
 
   for (const c of lista) {
     const s = stats[c.nombre] || { facturas: new Set(), total: 0, ultima: "" };
+    const deuda = calcularDeudaCliente(c.nombre);
     const fila = document.createElement("div");
     fila.className = "fila-lista cliente-fila";
 
@@ -1328,7 +1378,8 @@ function renderClientes() {
     compras.className = "fila-compras";
     compras.innerHTML =
       '<div class="fila-compra-total">' + formatearCOP(s.total) + '</div>' +
-      '<div class="fila-compra-detalle">' + s.facturas.size + ' factura(s)' + (s.ultima ? " · " + formatearFecha(s.ultima) : "") + '</div>';
+      '<div class="fila-compra-detalle">' + s.facturas.size + ' factura(s)' + (s.ultima ? " · " + formatearFecha(s.ultima) : "") + '</div>' +
+      (deuda > 0 ? '<div class="fila-deuda">💳 Deuda: ' + formatearCOP(deuda) + '</div>' : '');
 
     const acciones = document.createElement("div");
     acciones.className = "acciones-fila";
@@ -1358,18 +1409,32 @@ function abrirModalCliente(cliente) {
   const nombre = $("#cliente-nombre");
   const telefono = $("#cliente-telefono");
   const email = $("#cliente-email");
+  const deudaResumen = $("#cliente-deuda-resumen");
+  const btnAbono = $("#btn-abono-cliente");
   if (cliente) {
     titulo.textContent = "Editar cliente";
     id.value = cliente.id;
     nombre.value = cliente.nombre || "";
     telefono.value = cliente.telefono || "";
     email.value = cliente.email || "";
+    const deuda = calcularDeudaCliente(cliente.nombre);
+    if (deuda > 0) {
+      deudaResumen.textContent = "💳 Deuda pendiente: " + formatearCOP(deuda);
+      deudaResumen.classList.remove("oculto");
+      btnAbono.classList.remove("oculto");
+    } else {
+      deudaResumen.textContent = "✅ Sin deuda pendiente";
+      deudaResumen.classList.remove("oculto");
+      btnAbono.classList.add("oculto");
+    }
   } else {
     titulo.textContent = "Nuevo cliente";
     id.value = "";
     nombre.value = "";
     telefono.value = "";
     email.value = "";
+    deudaResumen.classList.add("oculto");
+    btnAbono.classList.add("oculto");
   }
   $("#modal-cliente").classList.remove("oculto");
   nombre.focus();
@@ -1694,20 +1759,46 @@ const EMOJIS_DISPONIBLES = [
   "🌫️", "🌁", "🌂", "☂️", "🧵", "🌡️", "🧤", "🧦", "🧢", "🪖",
 ];
 
-// Llena el selector de emojis conservando la selección actual (si existe).
-function llenarSelectEmoji(select, valorActual) {
+// Callback para saber dónde escribir el emoji elegido.
+let emojiCallback = null;
+
+// Abre el selector de emoji (modal con búsqueda y grilla).
+function abrirSelectorEmoji(callback, valorActual) {
+  emojiCallback = callback;
   const actual = valorActual && valorActual.trim() ? valorActual : "🍰";
-  select.innerHTML = "";
-  const opciones = [];
-  if (!EMOJIS_DISPONIBLES.includes(actual)) opciones.push(actual);
-  opciones.push(...EMOJIS_DISPONIBLES);
-  opciones.forEach((e) => {
-    const op = document.createElement("option");
-    op.value = e;
-    op.textContent = e + "  " + nombreEmoji(e);
-    select.appendChild(op);
+  renderGrillaEmoji(actual);
+  $("#buscador-emoji").value = "";
+  $("#modal-emoji").classList.remove("oculto");
+  setTimeout(() => $("#buscador-emoji").focus(), 50);
+}
+
+function cerrarSelectorEmoji() {
+  $("#modal-emoji").classList.add("oculto");
+  emojiCallback = null;
+}
+
+// Renderiza la grilla de emojis, filtrando por búsqueda si hay texto.
+function renderGrillaEmoji(valorActual) {
+  const filtro = $("#buscador-emoji").value.toLowerCase().trim();
+  const caja = $("#grilla-emoji");
+  caja.innerHTML = "";
+  const lista = filtro
+    ? EMOJIS_DISPONIBLES.filter((e) => nombreEmoji(e).toLowerCase().includes(filtro))
+    : EMOJIS_DISPONIBLES;
+  lista.forEach((e) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-emoji-grid" + (e === valorActual ? " seleccionado" : "");
+    btn.textContent = e;
+    btn.title = nombreEmoji(e);
+    btn.onclick = () => elegirEmoji(e);
+    caja.appendChild(btn);
   });
-  select.value = opciones.includes(actual) ? actual : "🍰";
+}
+
+function elegirEmoji(e) {
+  if (emojiCallback) emojiCallback(e);
+  cerrarSelectorEmoji();
 }
 
 // Nombre descriptivo (aproximado) para cada emoji en el selector.
@@ -1792,7 +1883,9 @@ function abrirModalProducto(p) {
   $("#producto-stock").value = p ? p.stock : "";
   $("#producto-stock-minimo").value = p ? p.stock_minimo : 3;
   $("#producto-unidad").value = p && p.unidad ? p.unidad : "unidad";
-  llenarSelectEmoji($("#producto-emoji"), p ? p.emoji : "🍰");
+  const emojiActual = p ? p.emoji : "🍰";
+  $("#producto-emoji").value = emojiActual;
+  $("#btn-emoji-selector").textContent = emojiActual;
   $("#producto-es-insumo").checked = p ? !!p.es_insumo : false;
 
   // Imagen: mostramos la vista previa si el producto ya tiene una.
@@ -2535,7 +2628,7 @@ async function exportarDatos() {
       return copia;
     })
   );
-  const datos = { productos: productosExport, ventas, clientes, exportado: new Date().toISOString() };
+  const datos = { productos: productosExport, ventas, clientes, abonos, exportado: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(datos, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2562,6 +2655,7 @@ async function procesarImportacion(e) {
     await limpiar("productos");
     await limpiar("ventas");
     await limpiar("clientes");
+    await limpiar("abonos");
     for (const p of datos.productos) {
       if (typeof p.imagen === "string" && p.imagen.startsWith("data:")) {
         try {
@@ -2576,6 +2670,7 @@ async function procesarImportacion(e) {
     }
     for (const v of datos.ventas) await guardar(v, "ventas");
     for (const c of (datos.clientes || [])) await guardar(c, "clientes");
+    for (const a of (datos.abonos || [])) await guardar(a, "abonos");
     toast("Datos importados correctamente.");
     await recargarTodo();
   } catch (err) {
@@ -2858,6 +2953,54 @@ function configurarEventos() {
     if (e.target === $("#modal-cliente")) cerrarModalCliente();
   });
 
+  // Abonos (pagos parciales de clientes)
+  $("#btn-abono-cliente").addEventListener("click", () => {
+    const clienteId = Number($("#cliente-id").value);
+    const cliente = clientes.find((c) => c.id === clienteId);
+    if (!cliente) return;
+    const deuda = calcularDeudaCliente(cliente.nombre);
+    $("#abono-titulo").textContent = "Abono a " + cliente.nombre;
+    $("#abono-deuda-info").textContent = "Deuda pendiente: " + formatearCOP(deuda);
+    $("#abono-cliente-id").value = clienteId;
+    $("#abono-monto").max = deuda;
+    $("#abono-monto").placeholder = "Máx: " + formatearCOP(deuda);
+    $("#abono-fecha").value = new Date().toISOString().slice(0, 10);
+    $("#abono-nota").value = "";
+    $("#modal-abono").classList.remove("oculto");
+    $("#abono-monto").focus();
+  });
+
+  function cerrarModalAbono() {
+    $("#modal-abono").classList.add("oculto");
+  }
+
+  $("#btn-cancelar-abono").addEventListener("click", cerrarModalAbono);
+  $("#form-abono").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const clienteId = Number($("#abono-cliente-id").value);
+    const cliente = clientes.find((c) => c.id === clienteId);
+    if (!cliente) return;
+    const monto = Number($("#abono-monto").value);
+    const deuda = calcularDeudaCliente(cliente.nombre);
+    if (monto > deuda) return toast("El abono no puede ser mayor a la deuda (" + formatearCOP(deuda) + ").", "error");
+    const abono = {
+      cliente_id: clienteId,
+      cliente_nombre: cliente.nombre,
+      monto: monto,
+      fecha: $("#abono-fecha").value,
+      nota: $("#abono-nota").value.trim(),
+      created_at: new Date().toISOString(),
+    };
+    await guardar(abono, "abonos");
+    abonos.push(abono);
+    toast("Abono de " + formatearCOP(monto) + " registrado para " + cliente.nombre);
+    cerrarModalAbono();
+    renderClientes();
+  });
+  $("#modal-abono").addEventListener("click", (e) => {
+    if (e.target === $("#modal-abono")) cerrarModalAbono();
+  });
+
   // Productos
   $("#btn-nuevo-producto").addEventListener("click", () => abrirModalProducto(null));
   $("#form-producto").addEventListener("submit", guardarProducto);
@@ -2882,6 +3025,19 @@ function configurarEventos() {
     renderProductos();
   });
 
+  // Selector de Emoji
+  $("#btn-emoji-selector").addEventListener("click", () =>
+    abrirSelectorEmoji((e) => {
+      $("#producto-emoji").value = e;
+      $("#btn-emoji-selector").textContent = e;
+    }, $("#producto-emoji").value)
+  );
+  $("#buscador-emoji").addEventListener("input", () => renderGrillaEmoji($("#producto-emoji").value));
+  $("#btn-cerrar-emoji").addEventListener("click", cerrarSelectorEmoji);
+  $("#modal-emoji").addEventListener("click", (e) => {
+    if (e.target === $("#modal-emoji")) cerrarSelectorEmoji();
+  });
+
   // Catálogo
   $("#btn-catalogo-nuevo").addEventListener("click", () => abrirModalProducto(null));
   $("#buscador-catalogo").addEventListener("input", (e) => {
@@ -2890,6 +3046,7 @@ function configurarEventos() {
   });
 
   // Imagen del producto
+  $("#btn-elegir-foto").addEventListener("click", () => $("#producto-imagen-input").click());
   $("#producto-imagen-input").addEventListener("change", async (e) => {
     const archivo = e.target.files[0];
     if (!archivo) return;

@@ -18,7 +18,7 @@ const CLAVE_EMPRESA_ACTIVA = "konta_empresa";
 const CLAVE_TUMBAS = "konta_sync_tumbas";  // borrados pendientes de sincronizar
 
 const STORES_GLOBALES = ["usuarios", "empresas"];
-const STORES_EMPRESA = ["productos", "ventas", "categorias", "recetas", "clientes"];
+const STORES_EMPRESA = ["productos", "ventas", "categorias", "recetas", "clientes", "abonos"];
 
 // Callback opcional para avisar cuando cambian los datos (lo usa la
 // sincronización con la nube para volver a subir cambios).
@@ -122,7 +122,7 @@ function abrirBDEmpresa(empresaId) {
   const enCache = conexionCacheada(nombre);
   if (enCache) return Promise.resolve(enCache);
   return new Promise((resolver, rechazar) => {
-    const peticion = indexedDB.open(nombre, 2);
+    const peticion = indexedDB.open(nombre, 3);
     peticion.onupgradeneeded = (e) => {
       const bd = e.target.result;
       if (!bd.objectStoreNames.contains("productos")) {
@@ -144,6 +144,11 @@ function abrirBDEmpresa(empresaId) {
       if (!bd.objectStoreNames.contains("clientes")) {
         const store = bd.createObjectStore("clientes", { keyPath: "id", autoIncrement: true });
         store.createIndex("nombre", "nombre", { unique: false });
+      }
+      if (!bd.objectStoreNames.contains("abonos")) {
+        const store = bd.createObjectStore("abonos", { keyPath: "id", autoIncrement: true });
+        store.createIndex("cliente_id", "cliente_id", { unique: false });
+        store.createIndex("fecha", "fecha", { unique: false });
       }
     };
     peticion.onsuccess = () => {
